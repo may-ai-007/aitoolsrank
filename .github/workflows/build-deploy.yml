@@ -6,48 +6,39 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'airank/package-lock.json'
+          cache-dependency-path: './airank/package-lock.json'
       
       - name: Install dependencies
-        run: cd airank && npm ci
+        run: |
+          cd airank
+          npm ci
       
-      - name: Decode data files
-        run: node github_decode.js
+      - name: Decrypt data files
+        run: |
+          cd airank
+          node ../github_decode.js
+        env:
+          DECRYPT_PASSWORD: ${{ secrets.DECRYPT_PASSWORD }}
       
-      - name: Build
-        run: cd airank && npm run build
-      
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-files
-          path: airank/dist
-  
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-files
-          path: dist
+      - name: Build project
+        run: |
+          cd airank
+          npm run build
       
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist
+          folder: airank/dist
           branch: gh-pages

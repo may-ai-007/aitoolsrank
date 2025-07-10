@@ -35,19 +35,12 @@ dist-ssr
 .env.test.local
 .env.production.local
 
-# 解密后的数据文件
-airank/src/data/**/monthly_rank_decrypted.json
-airank/src/data/**/total_rank_decrypted.json
-airank/src/data/**/income_rank_decrypted.json
-airank/src/data/**/region_rank_decrypted.json
-airank/src/data/**/*_decoded.json
-airank/src/data/**/*_full.json
-
-# 临时文件
-*.tmp
-*.temp
-
-# 数据抓取和处理脚本（本地使用，不上传到GitHub）
+# 数据抓取脚本
 scrape_toolify.py
-decrypt_build.js
-# github_decode.js会被上传到GitHub，用于GitHub Actions
+github_decode.js
+
+# 原始数据文件
+airank/src/data/en/*.json
+airank/src/data/zh/*.json
+!airank/src/data/en/*.enc
+!airank/src/data/zh/*.enc
