@@ -81,8 +81,22 @@ function processDataDirectory(dataDir) {
   if (!fs.existsSync(dataDir)) {
     console.error(`数据目录不存在: ${dataDir}`);
     console.log('当前目录内容:');
-    console.log(fs.readdirSync(path.dirname(dataDir)));
-    return;
+    const parentDir = path.dirname(dataDir);
+    if (fs.existsSync(parentDir)) {
+      console.log(fs.readdirSync(parentDir));
+    } else {
+      console.log(`父目录 ${parentDir} 不存在`);
+    }
+    
+    // 尝试创建数据目录
+    try {
+      console.log(`尝试创建数据目录: ${dataDir}`);
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log(`成功创建数据目录: ${dataDir}`);
+    } catch (error) {
+      console.error(`创建数据目录失败: ${dataDir}`, error);
+      return;
+    }
   }
   
   // 支持的语言和排名类型
@@ -98,12 +112,19 @@ function processDataDirectory(dataDir) {
     
     // 确保语言目录存在
     if (!fs.existsSync(langDir)) {
-      console.log(`语言目录不存在，跳过: ${langDir}`);
-      return;
+      console.log(`语言目录不存在，创建: ${langDir}`);
+      try {
+        fs.mkdirSync(langDir, { recursive: true });
+      } catch (error) {
+        console.error(`创建语言目录失败: ${langDir}`, error);
+        return;
+      }
     }
     
     console.log(`处理语言目录: ${langDir}`);
-    console.log(`目录内容: ${fs.readdirSync(langDir).join(', ')}`);
+    if (fs.existsSync(langDir)) {
+      console.log(`目录内容: ${fs.readdirSync(langDir).join(', ')}`);
+    }
     
     rankingTypes.forEach(rankType => {
       const encFilePath = path.join(langDir, `${rankType}.enc`);
@@ -140,15 +161,45 @@ function main() {
   
   // 检查目录结构
   console.log('检查目录结构:');
-  if (fs.existsSync('./airank')) {
-    console.log('airank 目录存在');
-    console.log(`内容: ${fs.readdirSync('./airank').join(', ')}`);
-  } else {
-    console.log('airank 目录不存在');
+  try {
+    const files = fs.readdirSync('.');
+    console.log(`当前目录内容: ${files.join(', ')}`);
+    
+    if (fs.existsSync('./src')) {
+      console.log('src 目录存在');
+      console.log(`内容: ${fs.readdirSync('./src').join(', ')}`);
+      
+      if (fs.existsSync('./src/data')) {
+        console.log('src/data 目录存在');
+        console.log(`内容: ${fs.readdirSync('./src/data').join(', ')}`);
+      }
+    }
+  } catch (error) {
+    console.error('检查目录结构时出错:', error);
   }
   
-  // 数据目录路径 - 修正为内层airank目录下的src/data
-  const dataDir = path.join(__dirname, 'airank', 'src', 'data');
+  // 尝试多种可能的数据目录路径
+  const possibleDataDirs = [
+    path.join(__dirname, 'airank', 'src', 'data'),  // 原始路径
+    path.join(process.cwd(), 'src', 'data'),        // 当前工作目录下的 src/data
+    path.join('src', 'data')                        // 相对路径 src/data
+  ];
+  
+  let dataDir = null;
+  for (const dir of possibleDataDirs) {
+    console.log(`尝试数据目录: ${dir}`);
+    if (fs.existsSync(dir)) {
+      dataDir = dir;
+      console.log(`找到数据目录: ${dataDir}`);
+      break;
+    }
+  }
+  
+  if (!dataDir) {
+    console.error('无法找到数据目录，使用默认路径');
+    dataDir = path.join(process.cwd(), 'src', 'data');
+  }
+  
   console.log(`处理数据目录: ${dataDir}`);
   processDataDirectory(dataDir);
 }
