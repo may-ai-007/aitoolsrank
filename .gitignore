@@ -43,3 +43,7 @@ scrape_toolify.py
 airank/src/data/**/*.json
 # 但保留加密文件
 !airank/src/data/**/*.enc
+
+# 解密后的数据文件
+assets/data/
+airank/dist/assets/data/

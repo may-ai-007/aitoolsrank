@@ -52,14 +52,14 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
-  const [dataPath, setDataPath] = useState<string>(`/src/data/${language}/${rankingType}.json`);
+  const [dataPath, setDataPath] = useState<string>(`./assets/data/${language}/${rankingType}.json`);
 
   // 加载数据
   useEffect(() => {
     let isMounted = true; // 添加一个标志来跟踪组件是否仍然挂载
     
     // 更新数据路径
-    const newDataPath = `/src/data/${language}/${rankingType}.json`;
+    const newDataPath = `./assets/data/${language}/${rankingType}.json`;
     if (dataPath !== newDataPath) {
       setDataPath(newDataPath);
     }
