@@ -37,10 +37,9 @@ dist-ssr
 
 # 数据抓取脚本
 scrape_toolify.py
-github_decode.js
+# github_decode.js 需要保留，用于 GitHub Actions
 
 # 原始数据文件
-airank/src/data/en/*.json
-airank/src/data/zh/*.json
-!airank/src/data/en/*.enc
-!airank/src/data/zh/*.enc
+airank/src/data/**/*.json
+# 但保留加密文件
+!airank/src/data/**/*.enc
