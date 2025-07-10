@@ -1,4 +1,0 @@
-/assets/data/* /assets/data/:splat 200
-/assets/data/en/* /assets/data/en/:splat 200
-/assets/data/zh/* /assets/data/zh/:splat 200
-/* /index.html 200 
