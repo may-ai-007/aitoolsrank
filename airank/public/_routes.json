@@ -1,7 +1,17 @@
 {
   "version": 1,
   "include": ["/*"],
-  "exclude": ["/assets/*", "/images/*", "/*.ico", "/*.svg"],
+  "exclude": [
+    "/assets/data/*",
+    "/assets/data/en/*",
+    "/assets/data/zh/*",
+    "/assets/*.js",
+    "/assets/*.css",
+    "/assets/*",
+    "/images/*", 
+    "/*.ico", 
+    "/*.svg"
+  ],
   "routes": [
     {
       "src": "/(.*)",
