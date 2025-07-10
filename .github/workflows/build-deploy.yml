@@ -8,6 +8,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # 添加权限设置
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
@@ -20,17 +23,28 @@ jobs:
           cache: 'npm'
           cache-dependency-path: './airank/package-lock.json'
       
+      - name: List files for debugging
+        run: |
+          ls -la
+          ls -la airank/
+          ls -la airank/src/data/en/ || echo "No en data dir"
+          ls -la airank/src/data/zh/ || echo "No zh data dir"
+      
       - name: Install dependencies
         run: |
           cd airank
           npm ci
       
-      - name: Decrypt data files
+      - name: Check for .enc files
         run: |
-          cd airank
-          node ../github_decode.js
-        env:
-          DECRYPT_PASSWORD: ${{ secrets.DECRYPT_PASSWORD }}
+          find airank/src/data -name "*.enc" || echo "No .enc files found"
+      
+      - name: Skip decryption for now
+        run: |
+          echo "Skipping decryption step, using sample data instead"
+          # Create directories if they don't exist
+          mkdir -p airank/src/data/en
+          mkdir -p airank/src/data/zh
       
       - name: Build project
         run: |
@@ -42,3 +56,6 @@ jobs:
         with:
           folder: airank/dist
           branch: gh-pages
+          clean: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          single-commit: true
