@@ -38,6 +38,16 @@ export type RankingType = 'monthly_rank' | 'total_rank' | 'income_rank' | 'regio
 // 每次加载的数据条数
 const PAGE_SIZE = 20;
 
+// 尝试不同的数据路径
+const DATA_PATHS = [
+  './assets/data/{lang}/{type}.json',
+  '/assets/data/{lang}/{type}.json',
+  'assets/data/{lang}/{type}.json',
+  './data/{lang}/{type}.json',
+  '/data/{lang}/{type}.json',
+  'data/{lang}/{type}.json'
+];
+
 /**
  * 加载AI工具排名数据的自定义Hook
  * @param rankingType 排名类型
@@ -53,6 +63,7 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [dataPath, setDataPath] = useState<string>(`./assets/data/${language}/${rankingType}.json`);
+  const [attemptedPaths, setAttemptedPaths] = useState<string[]>([]);
 
   // 加载数据
   useEffect(() => {
@@ -73,39 +84,59 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       setLoading(true);
       setError(null);
       setPage(1);
+      setAttemptedPaths([]);
       
-      try {
-        // 获取数据
-        const response = await fetch(newDataPath);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+      // 尝试不同的数据路径
+      let loaded = false;
+      const paths = DATA_PATHS.map(p => 
+        p.replace('{lang}', language).replace('{type}', rankingType)
+      );
+      
+      for (const path of paths) {
+        if (loaded) break;
+        
+        try {
+          console.log(`尝试加载数据: ${path}`);
+          setAttemptedPaths(prev => [...prev, path]);
+          
+          // 获取数据
+          const response = await fetch(path);
+          if (!response.ok) {
+            console.warn(`路径 ${path} 加载失败: ${response.status} ${response.statusText}`);
+            continue;
+          }
+          
+          const result: ApiResponse = await response.json();
+          
+          // 确保组件仍然挂载
+          if (!isMounted) return;
+          
+          console.log(`成功从 ${path} 加载数据`);
+          
+          // 保存元数据
+          setMetadata(result.metadata);
+          
+          // 保存所有数据
+          setAllData(result.data);
+          
+          // 只显示第一页数据
+          setData(result.data.slice(0, PAGE_SIZE));
+          
+          // 判断是否有更多数据
+          setHasMore(result.data.length > PAGE_SIZE);
+          
+          loaded = true;
+        } catch (err) {
+          console.warn(`尝试路径 ${path} 时出错:`, err);
         }
-        
-        const result: ApiResponse = await response.json();
-        
-        // 确保组件仍然挂载
-        if (!isMounted) return;
-        
-        // 保存元数据
-        setMetadata(result.metadata);
-        
-        // 保存所有数据
-        setAllData(result.data);
-        
-        // 只显示第一页数据
-        setData(result.data.slice(0, PAGE_SIZE));
-        
-        // 判断是否有更多数据
-        setHasMore(result.data.length > PAGE_SIZE);
-      } catch (err) {
-        console.error('Error loading data:', err);
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+      }
+      
+      if (!loaded && isMounted) {
+        setError(`无法加载数据。尝试了以下路径: ${paths.join(', ')}`);
+      }
+      
+      if (isMounted) {
+        setLoading(false);
       }
     };
     
@@ -137,7 +168,7 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
     }
   };
 
-  return { data, loading, error, loadMore, hasMore, metadata };
+  return { data, loading, error, loadMore, hasMore, metadata, attemptedPaths };
 };
 
 /**

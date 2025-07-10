@@ -22,7 +22,7 @@ const HomePage: React.FC = () => {
   }, [rankingType, setRankingType]);
   
   // Get data from custom hook
-  const { data, loading, error, loadMore, hasMore } = useAIToolsData(rankingType, language);
+  const { data, loading, error, loadMore, hasMore, attemptedPaths } = useAIToolsData(rankingType, language);
   
   // Filtering state
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,7 +55,26 @@ const HomePage: React.FC = () => {
       <div className="flex-1">
         {error ? (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-            {t('errors.loading')}
+            <h3 className="text-lg font-medium mb-2">{t('errors.loading')}</h3>
+            <p className="mb-2">{error}</p>
+            {attemptedPaths && attemptedPaths.length > 0 && (
+              <div className="mt-2 text-sm">
+                <p className="font-medium">尝试过的路径:</p>
+                <ul className="list-disc pl-5 mt-1">
+                  {attemptedPaths.map((path, index) => (
+                    <li key={index}>{path}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-4 text-sm">
+              <p>当前环境信息:</p>
+              <ul className="list-disc pl-5 mt-1">
+                <li>语言: {language}</li>
+                <li>排名类型: {rankingType}</li>
+                <li>当前URL: {window.location.href}</li>
+              </ul>
+            </div>
           </div>
         ) : (
           <>
