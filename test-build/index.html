@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试页面</title>
+</head>
+<body>
+  <h1>数据文件测试</h1>
+  <div id="result">加载中...</div>
+  
+  <script>
+    async function loadData() {
+      try {
+        const response = await fetch('./assets/data/en/monthly_rank.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        document.getElementById('result').innerHTML = `
+          <p>数据加载成功!</p>
+          <p>总项目数: ${data.data.length}</p>
+          <p>第一项: ${data.data[0].name}</p>
+          <pre>${JSON.stringify(data.data[0], null, 2)}</pre>
+        `;
+      } catch (error) {
+        document.getElementById('result').innerHTML = `加载失败: ${error.message}`;
+      }
+    }
+    
+    loadData();
+  </script>
+</body>
+</html>
+    
