@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getInlineData } from './inlineData';
 
 // 定义AI工具的数据结构
 export interface AITool {
@@ -64,6 +65,7 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [dataPath, setDataPath] = useState<string>(`./assets/data/${language}/${rankingType}.json`);
   const [attemptedPaths, setAttemptedPaths] = useState<string[]>([]);
+  const [isUsingInlineData, setIsUsingInlineData] = useState<boolean>(false);
 
   // 加载数据
   useEffect(() => {
@@ -85,12 +87,15 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       setError(null);
       setPage(1);
       setAttemptedPaths([]);
+      setIsUsingInlineData(false);
       
       // 尝试不同的数据路径
       let loaded = false;
       const paths = DATA_PATHS.map(p => 
         p.replace('{lang}', language).replace('{type}', rankingType)
       );
+      
+      console.log(`开始尝试加载数据，排名类型: ${rankingType}, 语言: ${language}`);
       
       for (const path of paths) {
         if (loaded) break;
@@ -100,34 +105,87 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
           setAttemptedPaths(prev => [...prev, path]);
           
           // 获取数据
-          const response = await fetch(path);
+          const response = await fetch(path, {
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          console.log(`路径 ${path} 的状态码: ${response.status}`);
+          
           if (!response.ok) {
             console.warn(`路径 ${path} 加载失败: ${response.status} ${response.statusText}`);
             continue;
           }
           
-          const result: ApiResponse = await response.json();
+          // 记录响应的内容类型
+          const contentType = response.headers.get('content-type');
+          console.log(`路径 ${path} 的内容类型: ${contentType}`);
           
-          // 确保组件仍然挂载
-          if (!isMounted) return;
+          // 获取响应文本
+          const text = await response.text();
           
-          console.log(`成功从 ${path} 加载数据`);
+          // 记录响应的前100个字符，用于调试
+          console.log(`路径 ${path} 的响应前100个字符: ${text.substring(0, 100)}`);
           
-          // 保存元数据
-          setMetadata(result.metadata);
-          
-          // 保存所有数据
-          setAllData(result.data);
-          
-          // 只显示第一页数据
-          setData(result.data.slice(0, PAGE_SIZE));
-          
-          // 判断是否有更多数据
-          setHasMore(result.data.length > PAGE_SIZE);
-          
-          loaded = true;
+          try {
+            // 尝试解析JSON
+            const result: ApiResponse = JSON.parse(text);
+            
+            // 确保组件仍然挂载
+            if (!isMounted) return;
+            
+            console.log(`成功从 ${path} 加载数据`);
+            
+            // 保存元数据
+            setMetadata(result.metadata);
+            
+            // 保存所有数据
+            setAllData(result.data);
+            
+            // 只显示第一页数据
+            setData(result.data.slice(0, PAGE_SIZE));
+            
+            // 判断是否有更多数据
+            setHasMore(result.data.length > PAGE_SIZE);
+            
+            loaded = true;
+          } catch (parseError) {
+            console.error(`解析路径 ${path} 的JSON时出错:`, parseError);
+            console.error(`响应文本: ${text}`);
+            continue;
+          }
         } catch (err) {
           console.warn(`尝试路径 ${path} 时出错:`, err);
+        }
+      }
+      
+      // 如果无法加载外部数据，则使用内联数据
+      if (!loaded && isMounted) {
+        console.log('尝试使用内联数据');
+        try {
+          const inlineResult = getInlineData(language, rankingType);
+          
+          // 保存元数据
+          setMetadata(inlineResult.metadata);
+          
+          // 保存所有数据
+          setAllData(inlineResult.data);
+          
+          // 只显示第一页数据
+          setData(inlineResult.data.slice(0, PAGE_SIZE));
+          
+          // 判断是否有更多数据
+          setHasMore(inlineResult.data.length > PAGE_SIZE);
+          
+          setIsUsingInlineData(true);
+          loaded = true;
+          
+          console.log('成功加载内联数据');
+        } catch (inlineError) {
+          console.error('加载内联数据时出错:', inlineError);
+          setError(`无法加载数据。尝试了以下路径: ${paths.join(', ')}，并且内联数据加载也失败了。`);
         }
       }
       
@@ -168,7 +226,16 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
     }
   };
 
-  return { data, loading, error, loadMore, hasMore, metadata, attemptedPaths };
+  return { 
+    data, 
+    loading, 
+    error, 
+    loadMore, 
+    hasMore, 
+    metadata, 
+    attemptedPaths, 
+    isUsingInlineData 
+  };
 };
 
 /**
@@ -204,20 +271,15 @@ export const filterTools = (tools: AITool[], searchTerm: string, selectedTags: s
  * @returns 格式化后的字符串
  */
 export const formatNumber = (value: number, language: string = 'en'): string => {
-  const isChinese = language === 'zh';
-  const absValue = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
+  if (value === undefined || value === null) {
+    return '0';
+  }
   
-  if (absValue >= 100000000) { // 1亿/1B
-    return isChinese 
-      ? `${sign}${(absValue / 100000000).toFixed(1)}亿`
-      : `${sign}${(absValue / 1000000000).toFixed(1)}B`;
-  } else if (absValue >= 1000000) { // 1百万/1M
-    return isChinese 
-      ? `${sign}${(absValue / 1000000).toFixed(1)}百万`
-      : `${sign}${(absValue / 1000000).toFixed(1)}M`;
-  } else {
-    return new Intl.NumberFormat().format(value);
+  try {
+    return new Intl.NumberFormat(language === 'zh' ? 'zh-CN' : 'en-US').format(value);
+  } catch (error) {
+    console.error('格式化数字时出错:', error);
+    return value.toString();
   }
 };
 
@@ -227,7 +289,12 @@ export const formatNumber = (value: number, language: string = 'en'): string => 
  * @returns 格式化后的字符串
  */
 export const formatGrowthRate = (rate: number): string => {
-  return `${(rate * 100).toFixed(1)}%`;
+  if (rate === undefined || rate === null) {
+    return '0%';
+  }
+  
+  const formattedRate = (rate * 100).toFixed(1);
+  return `${formattedRate}%`;
 };
 
 /**
@@ -236,6 +303,10 @@ export const formatGrowthRate = (rate: number): string => {
  * @returns 格式化后的字符串
  */
 export const formatIncome = (income: number): string => {
+  if (income === undefined || income === null) {
+    return '$0';
+  }
+  
   if (income >= 1000000) {
     return `$${(income / 1000000).toFixed(1)}M`;
   } else if (income >= 1000) {

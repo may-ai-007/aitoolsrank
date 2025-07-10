@@ -1,11 +1,12 @@
 /*
+  X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
-  
-/assets/*.js
-  Content-Type: application/javascript
+  Referrer-Policy: strict-origin-when-cross-origin
 
-/assets/*.css
-  Content-Type: text/css
+/assets/data/*/*.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: *
 
-/assets/*.json
-  Content-Type: application/json 
+/test-data.json
+  Content-Type: application/json
+  Access-Control-Allow-Origin: * 

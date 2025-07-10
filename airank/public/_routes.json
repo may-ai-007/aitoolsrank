@@ -2,20 +2,9 @@
   "version": 1,
   "include": ["/*"],
   "exclude": [
-    "/assets/data/*",
-    "/assets/data/en/*",
-    "/assets/data/zh/*",
-    "/assets/*.js",
-    "/assets/*.css",
-    "/assets/*",
-    "/images/*", 
-    "/*.ico", 
-    "/*.svg"
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    "/assets/data/*/*.json",
+    "/test-data.json",
+    "/_headers",
+    "/_routes.json"
   ]
 } 

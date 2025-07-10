@@ -1,6 +1,7 @@
 [build]
 command = "./cloudflare-build.sh"
-publish = "airank/dist"
+publish = "dist"
+base = ""
 
 [build.environment]
 NODE_VERSION = "20" 
