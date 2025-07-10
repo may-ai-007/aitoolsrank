@@ -39,12 +39,12 @@ jobs:
         run: |
           find airank/src/data -name "*.enc" || echo "No .enc files found"
       
-      - name: Skip decryption for now
+      - name: Decode data files
         run: |
-          echo "Skipping decryption step, using sample data instead"
-          # Create directories if they don't exist
-          mkdir -p airank/src/data/en
-          mkdir -p airank/src/data/zh
+          echo "Decoding data files using github_decode.js"
+          node github_decode.js
+          # 检查解码结果
+          find airank/src/data -name "*.json" || echo "No JSON files found after decoding"
       
       - name: Build project
         run: |

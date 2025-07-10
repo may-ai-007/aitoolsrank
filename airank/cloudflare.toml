@@ -1,0 +1,7 @@
+[build]
+command = "./cloudflare-build.sh"
+publish = "dist"
+base = ""
+
+[build.environment]
+NODE_VERSION = "20" 
