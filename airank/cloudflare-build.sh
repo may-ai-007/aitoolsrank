@@ -47,106 +47,14 @@ mkdir -p ../dist
 # 安装依赖
 npm install
 
-# 创建数据目录结构
+# 检查src/utils目录中是否存在inlineData.ts文件
+echo "检查inlineData.ts文件..."
+if [ ! -f "src/utils/inlineData.ts" ]; then
+  echo "警告: 未找到inlineData.ts文件，网站将无法显示数据"
+fi
+
+# 确保数据目录存在
 mkdir -p src/data/en src/data/zh
-
-# 创建测试数据文件
-cat > src/data/en/monthly_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "ranking_type": "monthly_rank",
-    "language": "en",
-    "total_items": 50
-  },
-  "data": [
-    {
-      "id": "claude",
-      "rank": 1,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://cdn.toolify.ai/logos/claude.webp",
-      "description": "Claude is an AI assistant from Anthropic that helps with tasks via natural language.",
-      "monthly_visits": 75000000,
-      "top_visits": 150000000,
-      "top_region": "United States",
-      "tags": ["AI assistant", "Conversational AI", "Writing assistant"],
-      "growth": 1.5,
-      "growth_rate": 0.5,
-      "estimated_income": 5000000
-    },
-    {
-      "id": "gemini",
-      "rank": 2,
-      "name": "Gemini",
-      "url": "https://gemini.google.com",
-      "logo": "https://cdn.toolify.ai/logos/gemini.webp",
-      "description": "Platform for building with Google's Gemini AI models.",
-      "monthly_visits": 65000000,
-      "top_visits": 130000000,
-      "top_region": "United States",
-      "tags": ["AI assistant", "Google AI", "Productivity tool"],
-      "growth": 2.0,
-      "growth_rate": 1.0,
-      "estimated_income": 4500000
-    }
-  ]
-}
-EOL
-
-# 复制相同的测试数据到其他文件
-cp src/data/en/monthly_rank.json src/data/en/total_rank.json
-cp src/data/en/monthly_rank.json src/data/en/income_rank.json
-cp src/data/en/monthly_rank.json src/data/en/region_rank.json
-
-# 创建中文测试数据
-cat > src/data/zh/monthly_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-    "ranking_type": "monthly_rank",
-    "language": "zh",
-    "total_items": 50
-  },
-  "data": [
-    {
-      "id": "claude",
-      "rank": 1,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://cdn.toolify.ai/logos/claude.webp",
-      "description": "Claude 是来自 Anthropic 的人工智能助手，通过自然语言帮助完成任务。",
-      "monthly_visits": 75000000,
-      "top_visits": 150000000,
-      "top_region": "美国",
-      "tags": ["AI助手", "对话AI", "写作助手"],
-      "growth": 1.5,
-      "growth_rate": 0.5,
-      "estimated_income": 5000000
-    },
-    {
-      "id": "gemini",
-      "rank": 2,
-      "name": "Gemini",
-      "url": "https://gemini.google.com",
-      "logo": "https://cdn.toolify.ai/logos/gemini.webp",
-      "description": "构建Google的Gemini AI模型的平台。",
-      "monthly_visits": 65000000,
-      "top_visits": 130000000,
-      "top_region": "美国",
-      "tags": ["AI助手", "谷歌AI", "生产力工具"],
-      "growth": 2.0,
-      "growth_rate": 1.0,
-      "estimated_income": 4500000
-    }
-  ]
-}
-EOL
-
-# 复制相同的测试数据到其他文件
-cp src/data/zh/monthly_rank.json src/data/zh/total_rank.json
-cp src/data/zh/monthly_rank.json src/data/zh/income_rank.json
-cp src/data/zh/monthly_rank.json src/data/zh/region_rank.json
 
 # 检查是否存在加密文件并尝试解密
 echo "检查加密文件..."
@@ -155,6 +63,10 @@ find src/data -name "*.enc" || echo "未找到加密文件"
 if [ ! -z "$DECRYPT_KEY" ] && [ -f "decrypt_build.js" ]; then
   echo "尝试解密数据文件..."
   node decrypt_build.js
+  
+  # 检查解密结果
+  echo "解密后的JSON文件:"
+  find src/data -name "*.json" || echo "解密可能失败，未找到JSON文件"
 fi
 
 # 使用自定义构建脚本
@@ -175,6 +87,26 @@ ls -la
 echo "检查dist目录:"
 if [ -d "dist" ]; then
   ls -la dist
+  
+  # 创建数据目录结构（确保assets/data目录存在）
+  echo "确保dist/assets/data目录存在"
+  mkdir -p dist/assets/data/en dist/assets/data/zh
+  
+  # 检查是否有JSON文件需要复制到dist目录
+  echo "检查并复制JSON文件到dist/assets/data目录"
+  find src/data -name "*.json" | while read json_file; do
+    # 获取相对路径部分（去掉src/）
+    rel_path=$(echo "$json_file" | sed 's|^src/||')
+    dist_path="dist/assets/$rel_path"
+    dist_dir=$(dirname "$dist_path")
+    
+    # 确保目标目录存在
+    mkdir -p "$dist_dir"
+    
+    # 复制文件
+    echo "复制: $json_file -> $dist_path"
+    cp "$json_file" "$dist_path"
+  done
   
   # 复制dist内容到根目录下的dist
   echo "复制dist内容到根目录dist"
