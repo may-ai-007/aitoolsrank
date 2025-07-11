@@ -5,17 +5,84 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+// 从环境变量或文件获取解密密钥
+function getDecryptKey() {
+  // 首先尝试从环境变量获取
+  if (process.env.DECRYPT_KEY) {
+    console.log('从环境变量获取解密密钥');
+    return process.env.DECRYPT_KEY;
+  }
+  
+  // 如果环境变量不存在，尝试从文件获取
+  try {
+    const keyPath = path.join(__dirname, 'encryption_key.key');
+    if (fs.existsSync(keyPath)) {
+      console.log('从文件获取解密密钥');
+      return fs.readFileSync(keyPath, 'utf8').trim();
+    }
+  } catch (error) {
+    console.error('从文件获取密钥失败:', error);
+  }
+  
+  console.warn('警告: 未找到解密密钥，将尝试使用Base64解码');
+  return null;
+}
+
+// Fernet解密函数
+function fernetDecrypt(encryptedData, key) {
+  try {
+    // 解析密文
+    const data = Buffer.from(encryptedData, 'base64');
+    
+    // 提取IV (前16字节)
+    const iv = data.slice(8, 24);
+    
+    // 提取密文 (除去签名、时间戳、IV)
+    const ciphertext = data.slice(24, -32);
+    
+    // 派生密钥
+    const keyBuffer = Buffer.from(key, 'base64');
+    const signingKey = keyBuffer.slice(0, 16);
+    const encryptionKey = keyBuffer.slice(16);
+    
+    // 解密
+    const decipher = crypto.createDecipheriv('aes-128-cbc', encryptionKey, iv);
+    let decrypted = decipher.update(ciphertext);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    // 移除填充
+    const padLength = decrypted[decrypted.length - 1];
+    const unpadded = decrypted.slice(0, decrypted.length - padLength);
+    
+    // 解析JSON
+    return JSON.parse(unpadded.toString('utf8'));
+  } catch (error) {
+    console.error('Fernet解密失败:', error);
+    return null;
+  }
+}
 
 // 解码数据
 function decodeData(encodedData) {
   try {
-    // 将Buffer转换为字符串，以便进行Base64解码
+    const key = getDecryptKey();
+    
+    if (key) {
+      // 尝试使用Fernet解密
+      try {
+        console.log('尝试使用Fernet解密');
+        return fernetDecrypt(encodedData, key);
+      } catch (fernetError) {
+        console.error('Fernet解密失败，尝试Base64解码:', fernetError);
+      }
+    }
+    
+    // 回退到Base64解码
+    console.log('使用Base64解码');
     const encodedString = encodedData.toString();
-    
-    // Base64解码
     const jsonData = Buffer.from(encodedString, 'base64').toString('utf-8');
-    
-    // 解析JSON
     return JSON.parse(jsonData);
   } catch (error) {
     console.error('解码失败:', error);
@@ -305,6 +372,13 @@ function main() {
   console.log(`脚本目录: ${__dirname}`);
   console.log(`Node.js 版本: ${process.version}`);
   console.log(`操作系统: ${process.platform} ${process.arch}`);
+  
+  // 检查环境变量
+  if (process.env.DECRYPT_KEY) {
+    console.log('找到环境变量 DECRYPT_KEY');
+  } else {
+    console.log('未找到环境变量 DECRYPT_KEY，将尝试从文件加载密钥');
+  }
   
   // 检查目录结构
   console.log('检查目录结构:');

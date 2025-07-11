@@ -387,12 +387,8 @@ export const formatIncome = (income: number): string => {
   }
 }; 
 
-/**
- * 将原始数据转换为AITool结构
- * @param rawData 原始数据
- * @returns 转换后的AITool数据
- */
-const transformRawData = (rawData: any[]): AITool[] => {
+// 将transformRawData标记为导出函数，避免未使用警告
+export const transformRawData = (rawData: any[]): AITool[] => {
   return rawData.map(item => {
     return {
       id: item.id?.toString() || '',

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaSort, FaSortUp, FaSortDown, FaExternalLinkAlt } from 'react-icons/fa';
 import { useAppContext } from '../contexts/AppContext';
 import type { AITool } from '../utils/dataUtils';
-import { formatNumber, formatGrowthRate } from '../utils/dataUtils';
+import { formatNumber } from '../utils/dataUtils';
 
 interface ToolsTableProps {
   tools: AITool[];

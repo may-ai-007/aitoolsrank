@@ -13,6 +13,14 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
       },
+      // 排除所有src/data目录下的.json文件，确保它们不会被编译进去
+      external: (id) => {
+        // 排除src/data目录下的.json文件，但允许其他.json文件
+        if (id.includes('/src/data/') && id.endsWith('.json')) {
+          return true
+        }
+        return false
+      },
     },
   },
   resolve: {
