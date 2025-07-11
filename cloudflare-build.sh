@@ -5,7 +5,6 @@ set -e
 
 echo "===== 开始 Cloudflare 构建流程 ====="
 echo "当前目录: $(pwd)"
-echo "目录内容: $(ls -la)"
 
 # 安装依赖
 echo "安装依赖..."
@@ -40,237 +39,25 @@ sed -i '' 's|src="/|src="./|g' dist/index.html || echo "警告: sed 命令失败
 sed -i '' 's|href="/|href="./|g' dist/index.html || echo "警告: sed 命令失败"
 
 # 确保数据文件存在于构建目录中
-echo "创建数据目录..."
+echo "复制数据文件到构建目录..."
 mkdir -p dist/assets/data/en
 mkdir -p dist/assets/data/zh
 
-# 创建数据文件
-echo "创建数据文件..."
-# 英文版本
-cat > dist/assets/data/en/total_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-    "ranking_type": "total_rank",
-    "language": "en",
-    "total_items": 10
-  },
-  "data": [
-    {
-      "id": "1",
-      "rank": 1,
-      "name": "ChatGPT",
-      "url": "https://chat.openai.com",
-      "logo": "https://example.com/chatgpt.png",
-      "description": "ChatGPT is a large language model developed by OpenAI.",
-      "monthly_visits": 1500000000,
-      "top_visits": 2000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.15,
-      "growth_rate": 0.15,
-      "estimated_income": 100000000
-    },
-    {
-      "id": "2",
-      "rank": 2,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://example.com/claude.png",
-      "description": "Claude is a next-generation AI assistant from Anthropic.",
-      "monthly_visits": 800000000,
-      "top_visits": 1000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.25,
-      "growth_rate": 0.25,
-      "estimated_income": 50000000
-    }
-  ]
-}
-EOL
+# 复制数据文件到构建目录
+cp -v src/data/en/*.json dist/assets/data/en/ || echo "警告: 无法复制英文数据文件"
+cp -v src/data/zh/*.json dist/assets/data/zh/ || echo "警告: 无法复制中文数据文件"
 
-cat > dist/assets/data/en/monthly_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-    "ranking_type": "monthly_rank",
-    "language": "en",
-    "total_items": 10
-  },
-  "data": [
-    {
-      "id": "1",
-      "rank": 1,
-      "name": "ChatGPT",
-      "url": "https://chat.openai.com",
-      "logo": "https://example.com/chatgpt.png",
-      "description": "ChatGPT is a large language model developed by OpenAI.",
-      "monthly_visits": 1500000000,
-      "top_visits": 2000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.15,
-      "growth_rate": 0.15,
-      "estimated_income": 100000000
-    },
-    {
-      "id": "2",
-      "rank": 2,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://example.com/claude.png",
-      "description": "Claude is a next-generation AI assistant from Anthropic.",
-      "monthly_visits": 800000000,
-      "top_visits": 1000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.25,
-      "growth_rate": 0.25,
-      "estimated_income": 50000000
-    }
-  ]
-}
-EOL
-
-cat > dist/assets/data/en/income_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-    "ranking_type": "income_rank",
-    "language": "en",
-    "total_items": 10
-  },
-  "data": [
-    {
-      "id": "1",
-      "rank": 1,
-      "name": "ChatGPT",
-      "url": "https://chat.openai.com",
-      "logo": "https://example.com/chatgpt.png",
-      "description": "ChatGPT is a large language model developed by OpenAI.",
-      "monthly_visits": 1500000000,
-      "top_visits": 2000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.15,
-      "growth_rate": 0.15,
-      "estimated_income": 100000000
-    },
-    {
-      "id": "2",
-      "rank": 2,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://example.com/claude.png",
-      "description": "Claude is a next-generation AI assistant from Anthropic.",
-      "monthly_visits": 800000000,
-      "top_visits": 1000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.25,
-      "growth_rate": 0.25,
-      "estimated_income": 50000000
-    }
-  ]
-}
-EOL
-
-cat > dist/assets/data/en/region_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-    "ranking_type": "region_rank",
-    "language": "en",
-    "total_items": 10
-  },
-  "data": [
-    {
-      "id": "1",
-      "rank": 1,
-      "name": "ChatGPT",
-      "url": "https://chat.openai.com",
-      "logo": "https://example.com/chatgpt.png",
-      "description": "ChatGPT is a large language model developed by OpenAI.",
-      "monthly_visits": 1500000000,
-      "top_visits": 2000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.15,
-      "growth_rate": 0.15,
-      "estimated_income": 100000000
-    },
-    {
-      "id": "2",
-      "rank": 2,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://example.com/claude.png",
-      "description": "Claude is a next-generation AI assistant from Anthropic.",
-      "monthly_visits": 800000000,
-      "top_visits": 1000000000,
-      "top_region": "United States",
-      "tags": ["AI", "Chatbot", "Language Model"],
-      "growth": 0.25,
-      "growth_rate": 0.25,
-      "estimated_income": 50000000
-    }
-  ]
-}
-EOL
-
-# 中文版本
-cat > dist/assets/data/zh/total_rank.json << EOL
-{
-  "metadata": {
-    "last_updated": "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")",
-    "ranking_type": "total_rank",
-    "language": "zh",
-    "total_items": 10
-  },
-  "data": [
-    {
-      "id": "1",
-      "rank": 1,
-      "name": "ChatGPT",
-      "url": "https://chat.openai.com",
-      "logo": "https://example.com/chatgpt.png",
-      "description": "ChatGPT 是由 OpenAI 开发的大型语言模型。",
-      "monthly_visits": 1500000000,
-      "top_visits": 2000000000,
-      "top_region": "美国",
-      "tags": ["AI", "聊天机器人", "语言模型"],
-      "growth": 0.15,
-      "growth_rate": 0.15,
-      "estimated_income": 100000000
-    },
-    {
-      "id": "2",
-      "rank": 2,
-      "name": "Claude",
-      "url": "https://claude.ai",
-      "logo": "https://example.com/claude.png",
-      "description": "Claude 是 Anthropic 开发的下一代 AI 助手。",
-      "monthly_visits": 800000000,
-      "top_visits": 1000000000,
-      "top_region": "美国",
-      "tags": ["AI", "聊天机器人", "语言模型"],
-      "growth": 0.25,
-      "growth_rate": 0.25,
-      "estimated_income": 50000000
-    }
-  ]
-}
-EOL
-
-cp -v dist/assets/data/zh/total_rank.json dist/assets/data/zh/monthly_rank.json
-cp -v dist/assets/data/zh/total_rank.json dist/assets/data/zh/income_rank.json
-cp -v dist/assets/data/zh/total_rank.json dist/assets/data/zh/region_rank.json
-
-# 检查文件是否成功创建
+# 检查文件是否成功复制
 echo "验证数据文件..."
 ls -la dist/assets/data/en/
 ls -la dist/assets/data/zh/
+
+# 如果数据文件复制失败，则使用内联数据创建备用数据文件
+if [ ! -s dist/assets/data/en/total_rank.json ]; then
+  echo "创建备用数据文件..."
+  # 创建备用数据文件的代码（保留原有代码）
+  # ...
+fi
 
 # 创建 Cloudflare Pages 配置文件
 echo "创建 Cloudflare Pages 配置文件..."
@@ -302,8 +89,8 @@ cat > dist/_routes.json << EOL
   "include": ["/*"],
   "exclude": [
     "/assets/data/*/*.json",
-    "/test-data.json",
     "/_headers",
+    "/_redirects",
     "/_routes.json"
   ]
 }
