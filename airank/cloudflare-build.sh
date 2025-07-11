@@ -60,9 +60,20 @@ mkdir -p src/data/en src/data/zh
 echo "检查加密文件..."
 find src/data -name "*.enc" || echo "未找到加密文件"
 
-if [ ! -z "$DECRYPT_KEY" ] && [ -f "decrypt_build.js" ]; then
+if [ ! -z "$DECRYPT_KEY" ]; then
   echo "尝试解密数据文件..."
-  node decrypt_build.js
+  
+  # 优先使用 .cjs 文件解密
+  if [ -f "decrypt_build.cjs" ]; then
+    echo "使用 decrypt_build.cjs 解密..."
+    node decrypt_build.cjs
+  elif [ -f "decrypt_build.js" ]; then
+    echo "尝试将 decrypt_build.js 重命名为 decrypt_build.cjs..."
+    cp decrypt_build.js decrypt_build.cjs
+    node decrypt_build.cjs
+  else
+    echo "找不到解密脚本，跳过解密步骤"
+  fi
   
   # 检查解密结果
   echo "解密后的JSON文件:"

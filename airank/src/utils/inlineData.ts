@@ -1,4 +1,4 @@
-import { ApiResponse, RankingType } from './dataUtils';
+import type { ApiResponse, RankingType } from './dataUtils';
 
 // 内联数据
 const enMonthlyRank: ApiResponse = {
