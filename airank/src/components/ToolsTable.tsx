@@ -310,15 +310,9 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               
               {/* Top region (conditional) */}
               {rankingType === 'region_rank' && (
-                <td className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('top_region')}
-                style={getHeaderStyle()}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>{t('table.columns.main_region')}</span>
-                  {getSortIcon('top_region')}
-                </div>
-              </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                  {tool.top_region || '-'}
+                </td>
               )}
               
               {/* Tags */}
