@@ -76,15 +76,18 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
   // Render growth indicator with color
   const renderGrowth = (growth: number, rate: number) => {
     // 确保增长值和增长率都有默认值
-    const growthValue = growth || 0;
-    const rateValue = rate || 0;
+    const growthValue = growth !== undefined && growth !== null ? growth : 0;
+    const rateValue = rate !== undefined && rate !== null ? rate : 0;
     
     const color = growthValue > 0 ? 'text-green-500' : growthValue < 0 ? 'text-red-500' : 'text-gray-500';
     const sign = growthValue > 0 ? '+' : growthValue < 0 ? '-' : '';
     
+    // 格式化增长率为百分比
+    const formattedRate = `${rateValue >= 0 ? '+' : ''}${(rateValue * 100).toFixed(1)}%`;
+    
     return (
       <div className={color}>
-        {sign}{formatNumber(Math.abs(growthValue), language)} ({rateValue >= 0 ? '+' : ''}{formatGrowthRate(rateValue)})
+        {sign}{formatNumber(Math.abs(growthValue), language)} ({formattedRate})
       </div>
     );
   };

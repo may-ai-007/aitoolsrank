@@ -53,13 +53,29 @@ def decrypt_data(encrypted_data, key=None):
     # 解析JSON
     return json.loads(decrypted_data)
 
-def fetch_data(api_url, params, headers, max_retries=3):
+def fetch_data(api_url, params, headers, max_retries=3, save_raw=False):
     """获取API数据，支持重试"""
     for attempt in range(max_retries):
         try:
             response = requests.get(api_url, params=params, headers=headers, timeout=15)
             if response.status_code == 200:
-                return response.json()
+                json_data = response.json()
+                
+                # 如果需要保存原始响应
+                if save_raw:
+                    raw_dir = os.path.join('AIrank', 'src', 'data', 'raw')
+                    os.makedirs(raw_dir, exist_ok=True)
+                    
+                    # 生成文件名
+                    filename = f"{api_url.split('/')[-1]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                    raw_file = os.path.join(raw_dir, filename)
+                    
+                    # 保存原始响应
+                    with open(raw_file, 'w', encoding='utf-8') as f:
+                        json.dump(json_data, f, ensure_ascii=False, indent=2)
+                    print(f"原始API响应已保存到 {raw_file}")
+                
+                return json_data
             else:
                 print(f"请求失败，状态码: {response.status_code}")
         except Exception as e:
@@ -72,7 +88,7 @@ def fetch_data(api_url, params, headers, max_retries=3):
     
     return None
 
-def fetch_ranking_data(ranking_type, language='en', max_pages=10):
+def fetch_ranking_data(ranking_type, language='en', max_pages=10, save_raw=False):
     """
     获取指定排名类型的数据
     
@@ -80,6 +96,7 @@ def fetch_ranking_data(ranking_type, language='en', max_pages=10):
     - ranking_type: 排名类型，可选值: 'monthly_rank', 'total_rank', 'income_rank', 'region_rank'
     - language: 语言，可选值: 'en', 'zh'
     - max_pages: 最大抓取页数
+    - save_raw: 是否保存原始API响应
     
     返回:
     - 处理后的数据列表
@@ -148,7 +165,7 @@ def fetch_ranking_data(ranking_type, language='en', max_pages=10):
             params['order_by'] = order_by
         
         # 获取数据
-        json_data = fetch_data(base_url, params, headers)
+        json_data = fetch_data(base_url, params, headers, save_raw=save_raw)
         if not json_data:
             print(f"获取第 {page} 页数据失败，跳过")
             continue
@@ -284,14 +301,14 @@ def save_data(data, ranking_type, language, encrypt=False):
     print(f"数据已保存到 {json_filename}")
     return json_filename
 
-def fetch_and_save_data(ranking_type='monthly_rank', language='en', max_pages=10, encrypt=False):
+def fetch_and_save_data(ranking_type='monthly_rank', language='en', max_pages=10, encrypt=False, save_raw=False):
     """获取并保存指定排名类型的数据"""
-    data = fetch_ranking_data(ranking_type, language, max_pages)
+    data = fetch_ranking_data(ranking_type, language, max_pages, save_raw)
     if data:
         return save_data(data, ranking_type, language, encrypt)
     return None
 
-def update_all_data(max_pages=10, encrypt=False):
+def update_all_data(max_pages=10, encrypt=False, save_raw=False):
     """更新所有类型的排名数据"""
     ranking_types = ['monthly_rank', 'total_rank', 'income_rank', 'region_rank']
     languages = ['en', 'zh']
@@ -300,7 +317,7 @@ def update_all_data(max_pages=10, encrypt=False):
     for language in languages:
         for ranking_type in ranking_types:
             print(f"\n===== 正在更新 {ranking_type} - {language} 数据 =====")
-            result = fetch_and_save_data(ranking_type, language, max_pages, encrypt)
+            result = fetch_and_save_data(ranking_type, language, max_pages, encrypt, save_raw)
             results.append((ranking_type, language, result))
             
             # 不同请求之间稍作等待
@@ -345,6 +362,7 @@ if __name__ == '__main__':
     parser.add_argument('--decrypt', type=str, help='要解密的文件路径')
     parser.add_argument('--output', type=str, help='解密后数据的输出文件路径')
     parser.add_argument('--generate-key', action='store_true', help='生成新的加密密钥')
+    parser.add_argument('--save-raw', action='store_true', help='保存原始API响应数据')
     
     args = parser.parse_args()
     
@@ -364,18 +382,18 @@ if __name__ == '__main__':
         sys.exit(0)
     
     if args.type == 'all' and args.lang == 'all':
-        update_all_data(max_pages=args.pages, encrypt=args.encrypt)
+        update_all_data(max_pages=args.pages, encrypt=args.encrypt, save_raw=args.save_raw)
     elif args.type == 'all':
         for ranking_type in ['monthly_rank', 'total_rank', 'income_rank', 'region_rank']:
             fetch_and_save_data(ranking_type=ranking_type, language=args.lang, max_pages=args.pages, 
-                               encrypt=args.encrypt)
+                               encrypt=args.encrypt, save_raw=args.save_raw)
             time.sleep(random.uniform(1, 3))
     elif args.lang == 'all':
         for language in ['en', 'zh']:
             fetch_and_save_data(ranking_type=args.type, language=language, max_pages=args.pages,
-                               encrypt=args.encrypt)
+                               encrypt=args.encrypt, save_raw=args.save_raw)
             if language == 'en':  # 最后一个不需要等待
                 time.sleep(random.uniform(1, 3))
     else:
         fetch_and_save_data(ranking_type=args.type, language=args.lang, max_pages=args.pages,
-                           encrypt=args.encrypt)
+                           encrypt=args.encrypt, save_raw=args.save_raw)
