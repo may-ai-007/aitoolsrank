@@ -22,6 +22,13 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
   const [sortField, setSortField] = useState<SortField>('rank');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   
+  // 中文状态下表头样式
+  const getHeaderStyle = () => {
+    return language === 'zh' 
+      ? { whiteSpace: 'nowrap' as const } 
+      : {};
+  };
+  
   // Handle sorting
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -68,11 +75,16 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
   
   // Render growth indicator with color
   const renderGrowth = (growth: number, rate: number) => {
-    const color = growth > 0 ? 'text-green-500' : growth < 0 ? 'text-red-500' : 'text-gray-500';
+    // 确保增长值和增长率都有默认值
+    const growthValue = growth || 0;
+    const rateValue = rate || 0;
+    
+    const color = growthValue > 0 ? 'text-green-500' : growthValue < 0 ? 'text-red-500' : 'text-gray-500';
+    const sign = growthValue > 0 ? '+' : growthValue < 0 ? '-' : '';
     
     return (
       <div className={color}>
-        {growth > 0 ? '+' : ''}{formatNumber(growth, language)} ({formatGrowthRate(rate)})
+        {sign}{formatNumber(Math.abs(growthValue), language)} ({rateValue >= 0 ? '+' : ''}{formatGrowthRate(rateValue)})
       </div>
     );
   };
@@ -134,6 +146,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               scope="col" 
               className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-16"
               onClick={() => handleSort('rank')}
+              style={getHeaderStyle()}
             >
               <div className="flex items-center justify-center">
                 <span>{t('table.columns.rank')}</span>
@@ -146,6 +159,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               <th 
                 scope="col" 
                 className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-10"
+                style={getHeaderStyle()}
               >
                 <span className="flex justify-center">Logo</span>
               </th>
@@ -156,6 +170,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               scope="col" 
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
               onClick={() => handleSort('name')}
+              style={getHeaderStyle()}
             >
               <div className="flex items-center space-x-1">
                 <span>{t('table.columns.name')}</span>
@@ -168,6 +183,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               scope="col" 
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
               onClick={() => handleSort('monthly_visits')}
+              style={getHeaderStyle()}
             >
               <div className="flex items-center space-x-1">
                 <span>{t('table.columns.traffic')}</span>
@@ -175,30 +191,32 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
               </div>
             </th>
             
+            {/* Growth column - 在所有排行榜中显示，除了收入榜 */}
+            {rankingType !== 'income_rank' && (
+              <th 
+                scope="col" 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('growth_rate')}
+                style={getHeaderStyle()}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>{t('table.columns.growth')}</span>
+                  {getSortIcon('growth_rate')}
+                </div>
+              </th>
+            )}
+            
             {/* Payment Platform column (only show for income ranking) */}
             {rankingType === 'income_rank' && (
               <th 
                 scope="col" 
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => handleSort('payment_platform')}
+                style={getHeaderStyle()}
               >
                 <div className="flex items-center space-x-1">
                   <span>{t('table.columns.payment')}</span>
                   {getSortIcon('payment_platform')}
-                </div>
-              </th>
-            )}
-            
-            {/* Growth column - 不在收入榜和月度榜显示 */}
-            {rankingType !== 'income_rank' && rankingType !== 'monthly_rank' && (
-              <th 
-                scope="col" 
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                onClick={() => handleSort('growth_rate')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>{t('table.columns.growth')}</span>
-                  {getSortIcon('growth_rate')}
                 </div>
               </th>
             )}
@@ -209,6 +227,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
                 scope="col" 
                 className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                 onClick={() => handleSort('top_region')}
+                style={getHeaderStyle()}
               >
                 <div className="flex items-center space-x-1">
                   <span>{t('table.columns.main_region')}</span>
@@ -221,6 +240,7 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
             <th 
               scope="col" 
               className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${language === 'en' ? 'w-28' : 'w-32'}`}
+              style={getHeaderStyle()}
             >
               <span>{t('table.columns.tags')}</span>
             </th>
@@ -268,53 +288,38 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
                 {formatNumber(tool.monthly_visits, language)}
               </td>
               
-              {/* Payment Platform (conditional) */}
-              {rankingType === 'income_rank' && (
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                  {tool.payment_platform ? (
-                    <div className="flex flex-wrap gap-1">
-                      {typeof tool.payment_platform === 'string' 
-                        ? tool.payment_platform.split(/[,\s]+/).filter(Boolean).map((platform, idx) => (
-                            <span 
-                              key={idx} 
-                              className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 whitespace-nowrap"
-                            >
-                              {platform}
-                            </span>
-                          ))
-                        : (
-                            <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
-                              {String(tool.payment_platform)}
-                            </span>
-                          )
-                      }
-                    </div>
-                  ) : '-'}
-                </td>
-              )}
-              
-              {/* Growth - 不在收入榜和月度榜显示 */}
-              {rankingType !== 'income_rank' && rankingType !== 'monthly_rank' && (
+              {/* Growth - 在所有排行榜中显示，除了收入榜 */}
+              {rankingType !== 'income_rank' && (
                 <td className="px-4 py-4 whitespace-nowrap text-sm">
                   {renderGrowth(tool.growth, tool.growth_rate)}
                 </td>
               )}
               
-              {/* Top region (conditional) */}
-              {rankingType === 'region_rank' && (
+              {/* Payment Platform (conditional) */}
+              {rankingType === 'income_rank' && (
                 <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                  {tool.top_region}
+                  {tool.payment_platform ? (
+                    Array.isArray(tool.payment_platform) 
+                      ? tool.payment_platform.join(', ')
+                      : typeof tool.payment_platform === 'string'
+                        ? tool.payment_platform
+                        : String(tool.payment_platform)
+                  ) : '-'}
                 </td>
               )}
               
-              {/* Payment Platform (conditional) */}
-              {/* 移除支付平台列
-              {rankingType === 'income_rank' && (
-                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                  {tool.payment_platform || '-'}
-                </td>
+              {/* Top region (conditional) */}
+              {rankingType === 'region_rank' && (
+                <td className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                onClick={() => handleSort('top_region')}
+                style={getHeaderStyle()}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>{t('table.columns.main_region')}</span>
+                  {getSortIcon('top_region')}
+                </div>
+              </td>
               )}
-              */}
               
               {/* Tags */}
               <td className="px-4 py-4 text-sm text-gray-700 w-32">
@@ -343,4 +348,4 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
   );
 };
 
-export default ToolsTable; 
+export default ToolsTable;

@@ -16,7 +16,7 @@ export interface AITool {
   growth: number;
   growth_rate: number;
   estimated_income: number;
-  payment_platform?: string; // 添加支付平台字段
+  payment_platform?: string[] | string; // 支持数组或字符串格式的支付平台
 }
 
 // 定义元数据结构
@@ -46,7 +46,15 @@ const DATA_PATHS = [
   'assets/data/{lang}/{type}.json',
   './data/{lang}/{type}.json',
   '/data/{lang}/{type}.json',
-  'data/{lang}/{type}.json'
+  'data/{lang}/{type}.json',
+  '../data/{lang}/{type}.json',
+  '../../data/{lang}/{type}.json',
+  './src/data/{lang}/{type}.json',
+  '/src/data/{lang}/{type}.json',
+  'src/data/{lang}/{type}.json',
+  './{lang}/{type}.json',
+  '/{lang}/{type}.json',
+  '{lang}/{type}.json'
 ];
 
 /**
@@ -97,67 +105,106 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       
       console.log(`开始尝试加载数据，排名类型: ${rankingType}, 语言: ${language}`);
       
-      for (const path of paths) {
-        if (loaded) break;
+      // 首先尝试加载本地JSON文件（如果存在）
+      try {
+        console.log(`尝试直接加载本地JSON文件: src/data/${language}/${rankingType}.json`);
+        const localPath = `src/data/${language}/${rankingType}.json`;
+        setAttemptedPaths(prev => [...prev, localPath]);
         
-        try {
-          console.log(`尝试加载数据: ${path}`);
-          setAttemptedPaths(prev => [...prev, path]);
-          
-          // 获取数据
-          const response = await fetch(path, {
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          
-          console.log(`路径 ${path} 的状态码: ${response.status}`);
-          
-          if (!response.ok) {
-            console.warn(`路径 ${path} 加载失败: ${response.status} ${response.statusText}`);
-            continue;
+        const response = await fetch(localPath, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
           }
-          
-          // 记录响应的内容类型
-          const contentType = response.headers.get('content-type');
-          console.log(`路径 ${path} 的内容类型: ${contentType}`);
-          
-          // 获取响应文本
+        });
+        
+        console.log(`本地路径 ${localPath} 的状态码: ${response.status}`);
+        
+        if (response.ok) {
           const text = await response.text();
+          const result: ApiResponse = JSON.parse(text);
           
-          // 记录响应的前100个字符，用于调试
-          console.log(`路径 ${path} 的响应前100个字符: ${text.substring(0, 100)}`);
+          if (!isMounted) return;
+          
+          console.log(`成功从本地路径 ${localPath} 加载数据`);
+          
+          setMetadata(result.metadata);
+          setAllData(result.data);
+          setData(result.data.slice(0, PAGE_SIZE));
+          setHasMore(result.data.length > PAGE_SIZE);
+          loaded = true;
+        } else {
+          console.warn(`本地路径 ${localPath} 加载失败: ${response.status}`);
+        }
+      } catch (localErr) {
+        console.warn(`尝试加载本地JSON文件时出错:`, localErr);
+      }
+      
+      // 如果本地加载失败，尝试其他路径
+      if (!loaded) {
+        for (const path of paths) {
+          if (loaded) break;
           
           try {
-            // 尝试解析JSON
-            const result: ApiResponse = JSON.parse(text);
+            console.log(`尝试加载数据: ${path}`);
+            setAttemptedPaths(prev => [...prev, path]);
             
-            // 确保组件仍然挂载
-            if (!isMounted) return;
+            // 获取数据
+            const response = await fetch(path, {
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+              }
+            });
             
-            console.log(`成功从 ${path} 加载数据`);
+            console.log(`路径 ${path} 的状态码: ${response.status}`);
             
-            // 保存元数据
-            setMetadata(result.metadata);
+            if (!response.ok) {
+              console.warn(`路径 ${path} 加载失败: ${response.status} ${response.statusText}`);
+              continue;
+            }
             
-            // 保存所有数据
-            setAllData(result.data);
+            // 记录响应的内容类型
+            const contentType = response.headers.get('content-type');
+            console.log(`路径 ${path} 的内容类型: ${contentType}`);
             
-            // 只显示第一页数据
-            setData(result.data.slice(0, PAGE_SIZE));
+            // 获取响应文本
+            const text = await response.text();
             
-            // 判断是否有更多数据
-            setHasMore(result.data.length > PAGE_SIZE);
+            // 记录响应的前100个字符，用于调试
+            console.log(`路径 ${path} 的响应前100个字符: ${text.substring(0, 100)}`);
             
-            loaded = true;
-          } catch (parseError) {
-            console.error(`解析路径 ${path} 的JSON时出错:`, parseError);
-            console.error(`响应文本: ${text}`);
-            continue;
+            try {
+              // 尝试解析JSON
+              const result: ApiResponse = JSON.parse(text);
+              
+              // 确保组件仍然挂载
+              if (!isMounted) return;
+              
+              console.log(`成功从 ${path} 加载数据`);
+              
+              // 保存元数据
+              setMetadata(result.metadata);
+              
+              // 保存所有数据
+              setAllData(result.data);
+              
+              // 只显示第一页数据
+              setData(result.data.slice(0, PAGE_SIZE));
+              
+              // 判断是否有更多数据
+              setHasMore(result.data.length > PAGE_SIZE);
+              
+              loaded = true;
+              break;
+            } catch (parseError) {
+              console.error(`解析路径 ${path} 的JSON时出错:`, parseError);
+              console.error(`响应文本: ${text}`);
+              continue;
+            }
+          } catch (err) {
+            console.warn(`尝试路径 ${path} 时出错:`, err);
           }
-        } catch (err) {
-          console.warn(`尝试路径 ${path} 时出错:`, err);
         }
       }
       
@@ -265,7 +312,7 @@ export const filterTools = (tools: AITool[], searchTerm: string, selectedTags: s
 };
 
 /**
- * 格式化数字，添加千位分隔符
+ * 格式化数字，根据语言添加单位（百万、亿或M、B）
  * @param value 数值
  * @param language 当前语言
  * @returns 格式化后的字符串
@@ -276,7 +323,31 @@ export const formatNumber = (value: number, language: string = 'en'): string => 
   }
   
   try {
-    return new Intl.NumberFormat(language === 'zh' ? 'zh-CN' : 'en-US').format(value);
+    const isZh = language === 'zh';
+    const absValue = Math.abs(value);
+    
+    // 中文单位换算
+    if (isZh) {
+      if (absValue >= 100000000) { // 亿
+        return `${(absValue / 100000000).toFixed(1)}亿`;
+      } else if (absValue >= 10000) { // 万
+        return `${(absValue / 10000).toFixed(1)}万`;
+      } else {
+        return new Intl.NumberFormat('zh-CN').format(absValue);
+      }
+    } 
+    // 英文单位换算
+    else {
+      if (absValue >= 1000000000) { // Billion
+        return `${(absValue / 1000000000).toFixed(1)}B`;
+      } else if (absValue >= 1000000) { // Million
+        return `${(absValue / 1000000).toFixed(1)}M`;
+      } else if (absValue >= 1000) { // Thousand
+        return `${(absValue / 1000).toFixed(1)}K`;
+      } else {
+        return new Intl.NumberFormat('en-US').format(absValue);
+      }
+    }
   } catch (error) {
     console.error('格式化数字时出错:', error);
     return value.toString();
@@ -315,3 +386,29 @@ export const formatIncome = (income: number): string => {
     return `$${income}`;
   }
 }; 
+
+/**
+ * 将原始数据转换为AITool结构
+ * @param rawData 原始数据
+ * @returns 转换后的AITool数据
+ */
+const transformRawData = (rawData: any[]): AITool[] => {
+  return rawData.map(item => {
+    return {
+      id: item.id?.toString() || '',
+      rank: item.rank || 0,
+      name: item.name || '',
+      url: item.website || item.url || '',
+      logo: item.logo || '', // 数据中已经有正确的logo字段
+      description: item.description || '',
+      monthly_visits: item.monthly_visits || 0,
+      top_visits: item.top_visits || item.monthly_visits || 0,
+      top_region: item.top_region || '',
+      tags: item.tags || item.categories || [],
+      growth: typeof item.growth === 'number' ? item.growth : 0,
+      growth_rate: typeof item.growth_rate === 'number' ? item.growth_rate : 0,
+      estimated_income: item.estimated_income || 0,
+      payment_platform: item.payment_platform || ''
+    };
+  });
+};
