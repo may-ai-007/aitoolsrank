@@ -1,6 +1,6 @@
 [build]
-command = "cd airank && ./cloudflare-build.sh"
-publish = "airank/dist"
+command = "cd airank && chmod +x cloudflare-build.sh && ./cloudflare-build.sh"
+publish = "dist"
 base = ""
 
 [build.environment]

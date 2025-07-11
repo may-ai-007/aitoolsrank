@@ -17,6 +17,18 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 echo "脚本目录: $SCRIPT_DIR"
 
+# 确保我们在airank目录下
+if [[ "$(basename $(pwd))" != "airank" ]]; then
+  echo "警告: 当前不在airank目录下，尝试切换目录"
+  if [[ -d "airank" ]]; then
+    cd airank
+    echo "已切换到airank目录: $(pwd)"
+  else
+    echo "错误: 找不到airank目录"
+    exit 1
+  fi
+fi
+
 # 检查package.json是否存在
 if [ ! -f "package.json" ]; then
   echo "错误: 当前目录中没有找到package.json文件"
@@ -25,8 +37,12 @@ if [ ! -f "package.json" ]; then
   
   # 尝试查找package.json
   echo "尝试查找package.json:"
-  find . -name "package.json" | grep -v "node_modules"
+  find .. -name "package.json" | grep -v "node_modules"
 fi
+
+# 创建根目录下的dist目录
+echo "创建根目录下的dist目录"
+mkdir -p ../dist
 
 # 安装依赖
 npm install
@@ -159,6 +175,12 @@ ls -la
 echo "检查dist目录:"
 if [ -d "dist" ]; then
   ls -la dist
+  
+  # 复制dist内容到根目录下的dist
+  echo "复制dist内容到根目录dist"
+  cp -r dist/* ../dist/
+  echo "复制完成，根目录dist内容:"
+  ls -la ../dist/
 else
   echo "错误: dist目录不存在!"
   # 尝试创建dist目录并复制public内容作为备用
@@ -170,10 +192,16 @@ else
     echo "警告: public目录不存在"
     # 列出根目录内容以检查结构
     echo "根目录结构:"
-    find . -type d -maxdepth 2 | sort
+    find .. -type d -maxdepth 2 | sort
   fi
   echo "创建了备用dist目录"
   ls -la dist
+  
+  # 复制备用dist内容到根目录dist
+  echo "复制备用dist内容到根目录dist"
+  cp -r dist/* ../dist/
+  echo "复制完成，根目录dist内容:"
+  ls -la ../dist/
 fi
 
 # 确保构建输出中的资源路径使用相对路径
@@ -181,6 +209,9 @@ if [ -f "dist/index.html" ]; then
   echo "修复资源路径..."
   sed -i '' 's|src="/|src="./|g' dist/index.html 2>/dev/null || sed -i 's|src="/|src="./|g' dist/index.html
   sed -i '' 's|href="/|href="./|g' dist/index.html 2>/dev/null || sed -i 's|href="/|href="./|g' dist/index.html
+  
+  # 也修复根目录下的dist/index.html
+  cp dist/index.html ../dist/index.html
 else
   echo "警告: dist/index.html 不存在，创建基本index.html文件"
   cat > dist/index.html << EOL
@@ -197,10 +228,16 @@ else
 </body>
 </html>
 EOL
+  # 复制到根目录下的dist
+  cp dist/index.html ../dist/index.html
 fi
 
 # 创建 Cloudflare Pages 配置文件
-cat > dist/_headers << EOL
+# 先在airank/dist目录创建
+for config_file in _headers _redirects _routes.json; do
+  echo "创建 $config_file..."
+  if [ "$config_file" = "_headers" ]; then
+    cat > dist/$config_file << EOL
 /*
   X-Content-Type-Options: nosniff
   
@@ -214,14 +251,14 @@ cat > dist/_headers << EOL
   Content-Type: application/json
   Access-Control-Allow-Origin: *
 EOL
-
-cat > dist/_redirects << EOL
+  elif [ "$config_file" = "_redirects" ]; then
+    cat > dist/$config_file << EOL
 /* /index.html 200
 /assets/* /assets/:splat 200
 /assets/data/* /assets/data/:splat 200
 EOL
-
-cat > dist/_routes.json << EOL
+  elif [ "$config_file" = "_routes.json" ]; then
+    cat > dist/$config_file << EOL
 {
   "version": 1,
   "include": ["/*"],
@@ -234,7 +271,14 @@ cat > dist/_routes.json << EOL
   ]
 }
 EOL
+  fi
+  
+  # 复制到根目录下的dist
+  cp dist/$config_file ../dist/$config_file
+done
 
 echo "Cloudflare Pages 构建完成"
-echo "最终目录结构:"
-find dist -type f | sort 
+echo "airank/dist目录结构:"
+find dist -type f | sort
+echo "根目录dist目录结构:"
+find ../dist -type f | sort 
