@@ -13,6 +13,21 @@ else
   echo "已找到环境变量 DECRYPT_KEY"
 fi
 
+# 确保我们在正确的目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+echo "脚本目录: $SCRIPT_DIR"
+
+# 检查package.json是否存在
+if [ ! -f "package.json" ]; then
+  echo "错误: 当前目录中没有找到package.json文件"
+  echo "当前目录内容:"
+  ls -la
+  
+  # 尝试查找package.json
+  echo "尝试查找package.json:"
+  find . -name "package.json" | grep -v "node_modules"
+fi
+
 # 安装依赖
 npm install
 
@@ -149,7 +164,14 @@ else
   # 尝试创建dist目录并复制public内容作为备用
   echo "创建备用dist目录..."
   mkdir -p dist
-  cp -r public/* dist/
+  if [ -d "public" ]; then
+    cp -r public/* dist/ || echo "复制public内容失败"
+  else
+    echo "警告: public目录不存在"
+    # 列出根目录内容以检查结构
+    echo "根目录结构:"
+    find . -type d -maxdepth 2 | sort
+  fi
   echo "创建了备用dist目录"
   ls -la dist
 fi
