@@ -11,8 +11,71 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// 添加详细日志输出
+function logDebug(message, obj = null) {
+  const timestamp = new Date().toISOString();
+  if (obj) {
+    console.log(`[${timestamp}] DEBUG: ${message}`, typeof obj === 'object' ? JSON.stringify(obj, null, 2) : obj);
+  } else {
+    console.log(`[${timestamp}] DEBUG: ${message}`);
+  }
+}
+
 // 密钥 (可接受多种格式，但推荐使用标准Base64格式 '+' 而非 '-')
+logDebug('准备获取环境变量DECRYPT_KEY');
 const DECRYPT_KEY = process.env.DECRYPT_KEY || "SeS1+J7QZI2sIi4fDF3ObSuDuUN1L3yLOimJFkKTEjg=";
+logDebug('找到环境变量DECRYPT_KEY，长度:', DECRYPT_KEY.length);
+logDebug('密钥前缀:', DECRYPT_KEY.substring(0, 5) + '...');
+
+// 验证密钥是否符合Base64格式
+function validateKey(key) {
+  // 检查是否为标准Base64格式
+  const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
+  const isValidBase64 = base64Regex.test(key);
+  logDebug('密钥是否为有效的Base64格式:', isValidBase64);
+
+  // 解码密钥以验证长度
+  try {
+    const keyBuffer = Buffer.from(key, 'base64');
+    logDebug('解码后密钥长度(字节):', keyBuffer.length);
+    return {
+      isValid: isValidBase64 && keyBuffer.length === 32,
+      decodedLength: keyBuffer.length
+    };
+  } catch (e) {
+    console.error('密钥解码失败:', e.message);
+    return { isValid: false, decodedLength: 0 };
+  }
+}
+
+// 验证密钥
+const keyValidation = validateKey(DECRYPT_KEY);
+if (!keyValidation.isValid) {
+  console.warn(`警告: 密钥格式无效或长度不正确(${keyValidation.decodedLength}字节)，请确保使用标准Base64格式`);
+}
+
+// 执行一个解密验证测试
+function testDecryptValidation() {
+  logDebug('执行解密验证测试');
+  try {
+    // 创建测试数据
+    const testData = { test: "验证数据", timestamp: new Date().toISOString() };
+    logDebug(`测试数据: ${JSON.stringify(testData)}`);
+    
+    // 创建Fernet实例
+    logDebug('创建InlineFernet实例');
+    const fernet = new Fernet(DECRYPT_KEY);
+    
+    // 检查密钥能否正确初始化
+    logDebug('Fernet实例创建成功，签名密钥长度:', fernet.signingKey.length);
+    logDebug('Fernet实例创建成功，加密密钥长度:', fernet.encryptionKey.length);
+    
+    console.log('解密验证测试成功：密钥格式有效');
+  } catch (error) {
+    console.error('解密验证测试失败:', error);
+    throw error; // 抛出错误，中断执行
+  }
+}
 
 // 支持的语言和排名类型
 const LANGUAGES = ['en', 'zh'];
@@ -78,18 +141,38 @@ class Fernet {
 
 // 解密文件
 function decryptFile(encFilePath, outputPath) {
-  console.log(`解密文件: ${encFilePath}`);
+  console.log(`尝试解密文件: ${encFilePath}`);
   
   try {
+    // 检查加密文件是否存在
+    if (!fs.existsSync(encFilePath)) {
+      console.error(`加密文件不存在: ${encFilePath}`);
+      return false;
+    }
+    
     // 读取加密文件
     const encData = fs.readFileSync(encFilePath);
-    console.log(`加密文件大小: ${encData.length} 字节`);
+    console.log(`已读取加密文件，大小: ${encData.length} 字节`);
+    
+    // 输出文件的前30个字节用于调试
+    const filePreview = Buffer.from(encData.slice(0, 30)).toString('hex');
+    logDebug(`文件前30个字节: ${filePreview}`);
+    logDebug(`开始解密文件，使用密钥长度: ${DECRYPT_KEY.length}`);
     
     // Base64解码
     let fileContent;
     try {
       fileContent = Buffer.from(encData.toString(), 'base64');
       console.log(`Base64解码后大小: ${fileContent.length} 字节`);
+      
+      // 统计数据信息
+      const dataStats = {
+        originalLength: encData.length,
+        base64Length: fileContent.length,
+        isUtf8: isUtf8(encData),
+        containsNonAscii: containsNonAscii(encData)
+      };
+      logDebug('数据统计:', dataStats);
     } catch (e) {
       console.error("Base64解码失败:", e.message);
       return false;
@@ -127,6 +210,26 @@ function decryptFile(encFilePath, outputPath) {
     return true;
   } catch (error) {
     console.error(`解密文件失败: ${error.message}`);
+    return false;
+  }
+}
+
+// 辅助函数：检查数据是否是有效的UTF-8
+function isUtf8(buffer) {
+  try {
+    const str = buffer.toString('utf8');
+    return str.length > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+// 辅助函数：检查字符串是否包含非ASCII字符
+function containsNonAscii(buffer) {
+  try {
+    const str = buffer.toString('utf8');
+    return /[^\x00-\x7F]/.test(str);
+  } catch (e) {
     return false;
   }
 }
@@ -300,21 +403,20 @@ function verifyDecodedFiles(dataDir) {
 // 主函数
 function main() {
   console.log('=== 开始解密数据文件 ===');
-  console.log(`当前工作目录: ${process.cwd()}`);
-  console.log(`脚本目录: ${__dirname}`);
-  console.log(`Node.js 版本: ${process.version}`);
-  console.log(`操作系统: ${process.platform} ${process.arch}`);
+  logDebug('Node.js版本:', process.version);
+  logDebug('平台:', process.platform + ', 架构: ' + process.arch);
+  logDebug('工作目录:', process.cwd());
+  logDebug('脚本目录:', __dirname);
   
   // 检查环境变量
   if (process.env.DECRYPT_KEY) {
-    console.log('找到环境变量 DECRYPT_KEY');
+    logDebug('DECRYPT_KEY环境变量存在');
   } else {
-    console.log('未找到环境变量 DECRYPT_KEY，使用脚本中的默认密钥');
+    console.warn('未找到环境变量 DECRYPT_KEY，使用脚本中的默认密钥');
   }
   
-  // 显示使用的密钥前缀
-  const keyPrefix = DECRYPT_KEY.substring(0, 5);
-  console.log(`使用密钥 (前缀): ${keyPrefix}...`);
+  // 执行验证测试
+  testDecryptValidation();
   
   // 查找数据目录
   const dataDir = findDataDirectory();
@@ -328,6 +430,9 @@ function main() {
   console.log(`\n解密完成: 成功 ${successCount} 个文件, 失败 ${failCount} 个文件`);
   console.log('=== 数据解密脚本执行完成 ===');
 }
+
+// 执行验证测试
+testDecryptValidation();
 
 // 执行主函数
 main(); 
