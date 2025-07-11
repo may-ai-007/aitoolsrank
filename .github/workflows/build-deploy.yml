@@ -40,6 +40,8 @@ jobs:
           find airank/src/data -name "*.enc" || echo "No .enc files found"
       
       - name: Decode data files
+        env:
+          DECRYPT_KEY: ${{ secrets.DECRYPT_KEY }}
         run: |
           echo "Decoding data files using github_decode.js"
           node github_decode.js
