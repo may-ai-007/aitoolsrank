@@ -25,7 +25,6 @@ dist-ssr
 
 # 数据抓取和加密相关
 /scrape_toolify.py
-/github_decode.js
 /encryption_key.key
 /test_decrypted.json
 
