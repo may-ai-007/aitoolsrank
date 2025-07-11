@@ -1,11 +1,16 @@
 /**
  * 自定义构建脚本
- * 用于在构建过程中处理数据文件
+ * 用于在构建过程中处理数据文件并执行构建
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取当前文件的目录
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 主函数
 function main() {
@@ -17,12 +22,6 @@ function main() {
     const languages = ['en', 'zh'];
     const rankingTypes = ['monthly_rank', 'total_rank', 'income_rank', 'region_rank'];
     let allDataReady = true;
-    
-    // 确保数据目录存在
-    if (!fs.existsSync(dataDir)) {
-      console.log(`创建数据目录: ${dataDir}`);
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
     
     languages.forEach(lang => {
       const langDir = path.join(dataDir, lang);
@@ -57,32 +56,16 @@ function main() {
     });
     
     if (!allDataReady) {
-      console.warn('部分数据文件不存在或格式无效，将尝试重新解密');
-      
-      // 尝试使用不同的解密方法
-      try {
-        console.log('尝试使用github_decode.js解密数据...');
-        if (fs.existsSync('../github_decode.js')) {
-          execSync('node ../github_decode.js', { stdio: 'inherit' });
-        } else if (fs.existsSync('./github_decode.js')) {
-          execSync('node ./github_decode.js', { stdio: 'inherit' });
-        } else {
-          console.warn('找不到github_decode.js，跳过解密步骤');
-        }
-      } catch (error) {
-        console.error('使用github_decode.js解密数据失败:', error);
-      }
+      console.warn('部分数据文件不存在或格式无效');
       
       // 检查是否有decrypt_build.js
-      try {
+      if (fs.existsSync('./decrypt_build.js')) {
         console.log('尝试使用decrypt_build.js解密数据...');
-        if (fs.existsSync('./decrypt_build.js')) {
+        try {
           execSync('node ./decrypt_build.js', { stdio: 'inherit' });
-        } else {
-          console.warn('找不到decrypt_build.js，跳过解密步骤');
+        } catch (error) {
+          console.error('使用decrypt_build.js解密数据失败:', error);
         }
-      } catch (error) {
-        console.error('使用decrypt_build.js解密数据失败:', error);
       }
       
       // 检查.enc文件并警告
@@ -101,15 +84,15 @@ function main() {
       });
     }
     
-    // 运行标准构建命令
-    console.log('运行标准构建命令...');
-    execSync('npm run build', { stdio: 'inherit' });
-    
     // 确保dist/assets/data目录存在
     const distDataDir = path.join(__dirname, 'dist', 'assets', 'data');
     fs.mkdirSync(distDataDir, { recursive: true });
     
-    // 构建后复制数据文件到dist/assets/data目录
+    // 运行标准构建命令
+    console.log('运行标准构建命令...');
+    execSync('npm run build', { stdio: 'inherit' });
+    
+    // 构建后再次复制数据文件到dist/assets/data目录
     console.log('复制数据文件到构建目录...');
     languages.forEach(lang => {
       const srcLangDir = path.join(dataDir, lang);
