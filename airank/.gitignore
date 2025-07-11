@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 数据抓取和加密相关
+/scrape_toolify.py
+/github_decode.js
+/encryption_key.key
+/test_decrypted.json
+
+# 解密后的数据文件 - 不提交到仓库
+src/data/**/*.json
+
+# 临时文件
+*.tmp
+*.temp
+
+# 重复的构建脚本
+/build-with-data.js

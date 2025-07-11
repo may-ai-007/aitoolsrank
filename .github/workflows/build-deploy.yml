@@ -1,0 +1,61 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # 添加权限设置
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './airank/package-lock.json'
+      
+      - name: List files for debugging
+        run: |
+          ls -la
+          ls -la airank/
+          ls -la airank/src/data/en/ || echo "No en data dir"
+          ls -la airank/src/data/zh/ || echo "No zh data dir"
+      
+      - name: Install dependencies
+        run: |
+          cd airank
+          npm ci
+      
+      - name: Check for .enc files
+        run: |
+          find airank/src/data -name "*.enc" || echo "No .enc files found"
+      
+      - name: Decode data files
+        run: |
+          echo "Decoding data files using github_decode.js"
+          node github_decode.js
+          # 检查解码结果
+          find airank/src/data -name "*.json" || echo "No JSON files found after decoding"
+      
+      - name: Build project
+        run: |
+          cd airank
+          npm run build
+      
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: airank/dist
+          branch: gh-pages
+          clean: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          single-commit: true
