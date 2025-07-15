@@ -455,6 +455,12 @@ export const formatIncome = (income: number): string => {
 // 将transformRawData标记为导出函数，避免未使用警告
 export const transformRawData = (rawData: any[]): AITool[] => {
   return rawData.map(item => {
+    // 如果是region_rank类型且没有region_monthly_visits字段，从monthly_visits和top_region_value计算
+    let regionMonthlyVisits = item.region_monthly_visits;
+    if (regionMonthlyVisits === undefined && item.monthly_visits && item.top_region_value) {
+      regionMonthlyVisits = Math.round(item.monthly_visits * item.top_region_value);
+    }
+    
     return {
       id: item.id?.toString() || '',
       rank: item.rank || 0,
@@ -466,7 +472,7 @@ export const transformRawData = (rawData: any[]): AITool[] => {
       top_visits: item.top_visits || item.monthly_visits || 0,
       top_region: item.top_region || '',
       top_region_value: item.top_region_value || 0,
-      region_monthly_visits: item.region_monthly_visits || 0, // Added for region_rank type
+      region_monthly_visits: regionMonthlyVisits || 0, // 使用计算后的值或原始值
       tags: item.tags || item.categories || [],
       growth: typeof item.growth === 'number' ? item.growth : 0,
       growth_rate: typeof item.growth_rate === 'number' ? item.growth_rate : 0,

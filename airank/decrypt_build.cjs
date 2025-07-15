@@ -257,6 +257,8 @@ function createTestData(outputPath, rankType, lang) {
           monthly_visits: 1000000,
           top_visits: 5000000,
           top_region: "Global",
+          top_region_value: 0.6, // 添加top_region_value字段
+          region_monthly_visits: 600000, // 添加region_monthly_visits字段
           tags: ["test", "debug"],
           growth: 0.5,
           growth_rate: 0.2,

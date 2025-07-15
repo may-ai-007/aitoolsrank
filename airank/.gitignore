@@ -37,3 +37,6 @@ src/data/**/*.json
 
 # 重复的构建脚本
 /build-with-data.js
+
+# 本地README文件 - 不提交到仓库
+README.md

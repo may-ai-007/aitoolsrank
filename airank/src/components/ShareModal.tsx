@@ -108,7 +108,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
           files: [imageFile]
         });
         console.log('分享成功');
-        return;
+      return;
       } catch (error) {
         console.error('Web Share API分享失败:', error);
         // 继续使用平台特定的分享方法
@@ -438,9 +438,9 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
       <div style={contentStyle} onClick={(e) => e.stopPropagation()}>
         <button style={closeButtonStyle} onClick={onClose}>
           <FaTimesCircle size={32} />
-        </button>
-        
-        {generatingImage ? (
+          </button>
+            
+            {generatingImage ? (
           <div style={loadingStyle}>
             <div style={{
               width: '64px',
@@ -451,11 +451,11 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
               animation: 'spin 1s linear infinite'
             }}></div>
             <p style={{ marginTop: '16px', color: '#4B5563', fontSize: '18px' }}>{t('share.generating')}</p>
-          </div>
-        ) : imageUrl ? (
+              </div>
+            ) : imageUrl ? (
           <>
-            <img 
-              src={imageUrl} 
+                <img 
+                  src={imageUrl} 
               alt="排行榜分享图片" 
               style={imageStyle}
             />
@@ -541,12 +541,12 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
               </div>
             </div>
           </>
-        ) : (
+            ) : (
           <div style={loadingStyle}>
             <p style={{ color: '#4B5563' }}>{t('share.loading')}</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
       
       {/* 社交媒体分享提示 */}
       {showShareInfo && (
