@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaTimesCircle, FaTwitter, FaFacebook, FaQrcode } from 'react-icons/fa';
+import { FaTimesCircle, FaTwitter, FaFacebook } from 'react-icons/fa';
 import { BsWechat } from 'react-icons/bs';
 import html2canvas from 'html2canvas';
 import { useAppContext } from '../contexts/AppContext';
@@ -22,7 +22,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeType, setQrCodeType] = useState<'wechat' | 'wechatMoments'>('wechat');
+  // 保留setQrCodeType函数以供调用，但使用_忽略未使用的变量警告
+  const [_qrCodeType, setQrCodeType] = useState<'wechat' | 'wechatMoments'>('wechat');
   const [showShareInfo, setShowShareInfo] = useState(false);
   
   // 在模态框打开时禁止页面滚动
@@ -412,9 +413,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
     width: '350px',
     maxWidth: '90%'
   };
-  
-  // 获取当前页面URL用于生成二维码
-  const currentUrl = window.location.href;
   
   // 获取图片标题
   const getImageTitle = () => {
