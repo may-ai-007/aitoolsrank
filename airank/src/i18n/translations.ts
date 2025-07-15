@@ -48,7 +48,7 @@ export const enTranslations = {
     columns: {
       rank: "Rank",
       name: "Name",
-      traffic: "Monthly Traffic",
+      traffic: "Total Traffic",
       total_traffic: "Total Traffic",
       payment: "Payment Model",
       category: "Category",
@@ -57,7 +57,8 @@ export const enTranslations = {
       tags: "Tags",
       growth: "Growth",
       est_income: "Est. Income",
-      main_region: "Main Region"
+      main_region: "Main Region",
+      region_traffic: "Region Traffic"
     },
     empty: "No data available",
     loading: "Loading...",
@@ -112,6 +113,30 @@ export const enTranslations = {
     home: "Home",
     about: "About"
   },
+  // 新增分享功能相关翻译
+  share: {
+    title: "Share Ranking",
+    generating: "Generating image...",
+    loading: "Preparing...",
+    image_tip: "Click on a sharing option to share this image",
+    options: "Share to",
+    wechat_friend: "WeChat Friend",
+    wechat_moments: "WeChat Moments",
+    wechat_friend_title: "Share to WeChat Friend",
+    wechat_moments_title: "Share to WeChat Moments",
+    twitter_title: "Share to Twitter",
+    facebook_title: "Share to Facebook",
+    wechat_scan_tip: "Scan QR code with WeChat to share",
+    download: "Download Image"
+  },
+  
+  rankings: {
+    total_rank: "Total Ranking",
+    monthly_rank: "Monthly Hot",
+    income_rank: "Revenue Ranking",
+    region_rank: "Regional Ranking"
+  },
+  
   language: "en"
 };
 
@@ -165,7 +190,7 @@ export const zhTranslations = {
     columns: {
       rank: "排名",
       name: "名称",
-      traffic: "月访问量",
+      traffic: "总访问量",
       total_traffic: "总访问量",
       payment: "付费模式",
       category: "类别",
@@ -174,7 +199,8 @@ export const zhTranslations = {
       tags: "标签",
       growth: "增长",
       est_income: "预估收入",
-      main_region: "主要地区"
+      main_region: "主要地区",
+      region_traffic: "地区访问量"
     },
     empty: "无数据",
     loading: "加载中...",
@@ -229,5 +255,29 @@ export const zhTranslations = {
     home: "首页",
     about: "关于"
   },
+  // 新增分享功能相关翻译
+  share: {
+    title: "分享排行榜",
+    generating: "正在生成图片...",
+    loading: "准备中...",
+    image_tip: "点击右侧分享选项分享此图片",
+    options: "分享到",
+    wechat_friend: "微信好友",
+    wechat_moments: "微信朋友圈",
+    wechat_friend_title: "分享到微信好友",
+    wechat_moments_title: "分享到微信朋友圈",
+    twitter_title: "分享到Twitter",
+    facebook_title: "分享到Facebook",
+    wechat_scan_tip: "请使用微信扫描二维码进行分享",
+    download: "下载图片"
+  },
+  
+  rankings: {
+    total_rank: "总排行榜",
+    monthly_rank: "月度热门",
+    income_rank: "收入排行",
+    region_rank: "地区分布"
+  },
+  
   language: "zh"
 }; 

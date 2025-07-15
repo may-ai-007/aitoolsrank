@@ -19,6 +19,7 @@ const enMonthlyRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "United States",
+      "top_region_value": 0.65,
       "tags": ["AI assistant", "Conversational AI", "Writing assistant"],
       "growth": 1.5,
       "growth_rate": 0.5,
@@ -34,6 +35,7 @@ const enMonthlyRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "United States",
+      "top_region_value": 0.58,
       "tags": ["AI assistant", "Google AI", "Productivity tool"],
       "growth": 2.0,
       "growth_rate": 1.0,
@@ -49,6 +51,7 @@ const enMonthlyRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "United States",
+      "top_region_value": 0.6,
       "tags": ["AI assistant", "Conversational AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,
@@ -75,6 +78,7 @@ const enTotalRank: ApiResponse = {
       "monthly_visits": 150000000,
       "top_visits": 300000000,
       "top_region": "United States",
+      "top_region_value": 0.6,
       "tags": ["AI assistant", "Conversational AI", "OpenAI"],
       "growth": 1.1,
       "growth_rate": 0.1,
@@ -90,6 +94,7 @@ const enTotalRank: ApiResponse = {
       "monthly_visits": 120000000,
       "top_visits": 240000000,
       "top_region": "United States",
+      "top_region_value": 0.65,
       "tags": ["AI assistant", "Conversational AI", "Writing assistant"],
       "growth": 1.3,
       "growth_rate": 0.3,
@@ -105,6 +110,7 @@ const enTotalRank: ApiResponse = {
       "monthly_visits": 100000000,
       "top_visits": 200000000,
       "top_region": "United States",
+      "top_region_value": 0.58,
       "tags": ["AI assistant", "Google AI", "Productivity tool"],
       "growth": 1.8,
       "growth_rate": 0.8,
@@ -131,10 +137,12 @@ const enIncomeRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "United States",
+      "top_region_value": 0.6,
       "tags": ["AI assistant", "Conversational AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,
-      "estimated_income": 8000000
+      "estimated_income": 8000000,
+      "payment_platform": "Stripe"
     },
     {
       "id": "claude",
@@ -146,10 +154,12 @@ const enIncomeRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "United States",
+      "top_region_value": 0.65,
       "tags": ["AI assistant", "Conversational AI", "Writing assistant"],
       "growth": 1.5,
       "growth_rate": 0.5,
-      "estimated_income": 6000000
+      "estimated_income": 6000000,
+      "payment_platform": "Stripe, PayPal"
     },
     {
       "id": "gemini",
@@ -161,10 +171,12 @@ const enIncomeRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "United States",
+      "top_region_value": 0.58,
       "tags": ["AI assistant", "Google AI", "Productivity tool"],
       "growth": 2.0,
       "growth_rate": 1.0,
-      "estimated_income": 5500000
+      "estimated_income": 5500000,
+      "payment_platform": "Google Pay"
     }
   ]
 };
@@ -187,6 +199,8 @@ const enRegionRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "United States",
+      "top_region_value": 0.65,
+      "region_monthly_visits": 48750000,
       "tags": ["AI assistant", "Conversational AI", "Writing assistant"],
       "growth": 1.5,
       "growth_rate": 0.5,
@@ -202,6 +216,8 @@ const enRegionRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "United States",
+      "top_region_value": 0.58,
+      "region_monthly_visits": 37700000,
       "tags": ["AI assistant", "Google AI", "Productivity tool"],
       "growth": 2.0,
       "growth_rate": 1.0,
@@ -217,6 +233,8 @@ const enRegionRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "United States",
+      "top_region_value": 0.6,
+      "region_monthly_visits": 36000000,
       "tags": ["AI assistant", "Conversational AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,
@@ -244,6 +262,7 @@ const zhMonthlyRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "美国",
+      "top_region_value": 0.65,
       "tags": ["AI助手", "对话AI", "写作助手"],
       "growth": 1.5,
       "growth_rate": 0.5,
@@ -259,6 +278,7 @@ const zhMonthlyRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "美国",
+      "top_region_value": 0.58,
       "tags": ["AI助手", "谷歌AI", "生产力工具"],
       "growth": 2.0,
       "growth_rate": 1.0,
@@ -274,6 +294,7 @@ const zhMonthlyRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "美国",
+      "top_region_value": 0.6,
       "tags": ["AI助手", "对话AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,
@@ -300,6 +321,7 @@ const zhTotalRank: ApiResponse = {
       "monthly_visits": 150000000,
       "top_visits": 300000000,
       "top_region": "美国",
+      "top_region_value": 0.6,
       "tags": ["AI助手", "对话AI", "OpenAI"],
       "growth": 1.1,
       "growth_rate": 0.1,
@@ -315,6 +337,7 @@ const zhTotalRank: ApiResponse = {
       "monthly_visits": 120000000,
       "top_visits": 240000000,
       "top_region": "美国",
+      "top_region_value": 0.65,
       "tags": ["AI助手", "对话AI", "写作助手"],
       "growth": 1.3,
       "growth_rate": 0.3,
@@ -330,6 +353,7 @@ const zhTotalRank: ApiResponse = {
       "monthly_visits": 100000000,
       "top_visits": 200000000,
       "top_region": "美国",
+      "top_region_value": 0.58,
       "tags": ["AI助手", "谷歌AI", "生产力工具"],
       "growth": 1.8,
       "growth_rate": 0.8,
@@ -356,10 +380,12 @@ const zhIncomeRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "美国",
+      "top_region_value": 0.6,
       "tags": ["AI助手", "对话AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,
-      "estimated_income": 8000000
+      "estimated_income": 8000000,
+      "payment_platform": "Stripe"
     },
     {
       "id": "claude",
@@ -371,10 +397,12 @@ const zhIncomeRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "美国",
+      "top_region_value": 0.65,
       "tags": ["AI助手", "对话AI", "写作助手"],
       "growth": 1.5,
       "growth_rate": 0.5,
-      "estimated_income": 6000000
+      "estimated_income": 6000000,
+      "payment_platform": "Stripe, PayPal"
     },
     {
       "id": "gemini",
@@ -386,10 +414,12 @@ const zhIncomeRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "美国",
+      "top_region_value": 0.58,
       "tags": ["AI助手", "谷歌AI", "生产力工具"],
       "growth": 2.0,
       "growth_rate": 1.0,
-      "estimated_income": 5500000
+      "estimated_income": 5500000,
+      "payment_platform": "Google Pay"
     }
   ]
 };
@@ -412,6 +442,8 @@ const zhRegionRank: ApiResponse = {
       "monthly_visits": 75000000,
       "top_visits": 150000000,
       "top_region": "美国",
+      "top_region_value": 0.65,
+      "region_monthly_visits": 48750000,
       "tags": ["AI助手", "对话AI", "写作助手"],
       "growth": 1.5,
       "growth_rate": 0.5,
@@ -427,6 +459,8 @@ const zhRegionRank: ApiResponse = {
       "monthly_visits": 65000000,
       "top_visits": 130000000,
       "top_region": "美国",
+      "top_region_value": 0.58,
+      "region_monthly_visits": 37700000,
       "tags": ["AI助手", "谷歌AI", "生产力工具"],
       "growth": 2.0,
       "growth_rate": 1.0,
@@ -442,6 +476,8 @@ const zhRegionRank: ApiResponse = {
       "monthly_visits": 60000000,
       "top_visits": 120000000,
       "top_region": "美国",
+      "top_region_value": 0.6,
+      "region_monthly_visits": 36000000,
       "tags": ["AI助手", "对话AI", "OpenAI"],
       "growth": 1.2,
       "growth_rate": 0.2,

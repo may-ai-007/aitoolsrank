@@ -41,9 +41,14 @@ const Header: React.FC<HeaderProps> = ({ onOpenAbout }) => {
           <div className="flex items-center">
             <a 
               href="#/" 
-              className="text-xl font-bold text-gray-900"
+              className="flex items-center text-xl font-bold text-gray-900"
               onClick={() => handleNavClick('home')}
             >
+              <img 
+                src="/fly.svg" 
+                alt="AIrank Logo" 
+                style={{ width: '36px', height: '36px', marginRight: '6px' }}
+              />
               {t('app.title')}
             </a>
           </div>
