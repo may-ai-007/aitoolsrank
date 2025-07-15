@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { RankingType } from '../utils/dataUtils';
 
@@ -11,6 +11,8 @@ interface AppContextType {
   toggleDarkMode: () => void;
   lastUpdated: string | null;
   setLastUpdated: (date: string) => void;
+  selectedRegion: string;
+  setSelectedRegion: (region: string) => void;
 }
 
 const defaultContext: AppContextType = {
@@ -21,7 +23,9 @@ const defaultContext: AppContextType = {
   isDarkMode: false,
   toggleDarkMode: () => {},
   lastUpdated: null,
-  setLastUpdated: () => {}
+  setLastUpdated: () => {},
+  selectedRegion: 'US',
+  setSelectedRegion: () => {}
 };
 
 const AppContext = createContext<AppContextType>(defaultContext);
@@ -49,10 +53,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return savedDarkMode === 'true';
   };
 
+  const getInitialSelectedRegion = () => {
+    const savedRegion = localStorage.getItem('selectedRegion');
+    return savedRegion || 'US';
+  };
+
   const [language, setLanguageState] = useState<string>(getInitialLanguage());
   const [rankingType, setRankingTypeState] = useState<RankingType>(getInitialRankingType());
   const [isDarkMode, setIsDarkMode] = useState<boolean>(getInitialDarkMode());
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegionState] = useState<string>(getInitialSelectedRegion());
 
   // 设置语言并保存到localStorage
   const setLanguage = (lang: string) => {
@@ -80,6 +90,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
+  // 设置选中的区域并保存到localStorage
+  const setSelectedRegion = (region: string) => {
+    setSelectedRegionState(region);
+    localStorage.setItem('selectedRegion', region);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -90,7 +106,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         isDarkMode,
         toggleDarkMode,
         lastUpdated,
-        setLastUpdated
+        setLastUpdated,
+        selectedRegion,
+        setSelectedRegion
       }}
     >
       {children}

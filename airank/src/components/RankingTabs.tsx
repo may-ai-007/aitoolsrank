@@ -22,7 +22,7 @@ const RankingTabs: React.FC<RankingTabsProps> = ({
     { id: 'total_rank', label: t('app.tabs.total') },
     { id: 'monthly_rank', label: t('app.tabs.monthly') },
     { id: 'income_rank', label: t('app.tabs.income') },
-    { id: 'region_rank', label: t('app.tabs.region') }
+    // { id: 'region_rank', label: t('app.tabs.region') }
   ];
   
   // 提取所有工具的标签作为分类

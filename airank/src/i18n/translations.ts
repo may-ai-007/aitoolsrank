@@ -17,6 +17,10 @@ export const enTranslations = {
     showAll: "Show All",
     search: "Search",
     reset: "Reset",
+    select_region: "Select Region",
+    filtering_by: "Filtering by",
+    tags: "Tags",
+    search_term: "Search",
     payment: {
       title: "Payment Model",
       free: "Free",
@@ -62,7 +66,10 @@ export const enTranslations = {
     },
     empty: "No data available",
     loading: "Loading...",
-    end_of_list: "End of list"
+    end_of_list: "End of list",
+    no_data_found: "No data found for this region",
+    try_another_region: "Please try selecting another region",
+    no_data: "No data"
   },
   about: {
     title: "About AI Tools Ranking",
@@ -159,6 +166,10 @@ export const zhTranslations = {
     showAll: "显示全部",
     search: "搜索",
     reset: "重置",
+    select_region: "选择地区",
+    filtering_by: "筛选条件",
+    tags: "标签",
+    search_term: "搜索",
     payment: {
       title: "付费模式",
       free: "免费",
@@ -204,7 +215,10 @@ export const zhTranslations = {
     },
     empty: "无数据",
     loading: "加载中...",
-    end_of_list: "已显示全部"
+    end_of_list: "已显示全部",
+    no_data_found: "该地区暂无数据",
+    try_another_region: "请尝试选择其他地区",
+    no_data: "无数据"
   },
   about: {
     title: "关于AI工具排行",

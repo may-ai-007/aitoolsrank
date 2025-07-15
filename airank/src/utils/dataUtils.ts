@@ -14,6 +14,7 @@ export interface AITool {
   top_region: string;
   top_region_value: number;
   region_monthly_visits?: number; // Added for region_rank type
+  region?: string; // 添加 region 字段，用于标识数据所属的地区
   tags: string[];
   growth: number;
   growth_rate: number;
@@ -80,7 +81,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const [allData, setAllData] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [dataPath, setDataPath] = useState<string>(`./assets/data/${language}/${rankingType}.json`);
@@ -100,14 +100,20 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       setDataPath(newDataPath);
     }
     
+    // 切换rankingType时，重置数据状态
+    setData([]);
+    setAllData([]);
+    setLoading(true);
+    setError(null);
+    setAttemptedPaths([]);
+    setIsUsingInlineData(false);
+    setHasMore(true);
+    
     const fetchData = async () => {
       // 如果组件已卸载或者没有有效的排名类型或语言，则不执行任何操作
       if (!isMounted || !rankingType || !language) {
         return;
       }
-      
-      setLoading(true);
-      setError(null);
       
       // 检查缓存
       const now = Date.now();
@@ -122,9 +128,7 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
         return;
       }
       
-      setPage(1);
-      setAttemptedPaths([]);
-      setIsUsingInlineData(false);
+      setHasMore(true);
       
       // 尝试不同的数据路径
       let loaded = false;
@@ -133,59 +137,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       );
       
       console.log(`开始尝试加载数据，排名类型: ${rankingType}, 语言: ${language}`);
-      
-      // 首先尝试使用内联数据（提高速度）
-      try {
-        console.log('优先尝试使用内联数据');
-        const inlineResult = getInlineData(language, rankingType);
-        
-        // 保存元数据
-        setMetadata(inlineResult.metadata);
-        
-        // 保存所有数据
-        setAllData(inlineResult.data);
-        
-        // 只显示第一页数据
-        setData(inlineResult.data.slice(0, PAGE_SIZE));
-        
-        // 判断是否有更多数据
-        setHasMore(inlineResult.data.length > PAGE_SIZE);
-        
-        setIsUsingInlineData(true);
-        loaded = true;
-        
-        // 缓存数据
-        dataCache[cacheKey] = {
-          data: inlineResult.data,
-          metadata: inlineResult.metadata,
-          timestamp: now
-        };
-        
-        console.log('成功加载内联数据');
-        
-        // 在后台继续尝试加载外部数据
-        setTimeout(() => {
-          loadExternalData(paths, cacheKey);
-        }, 100);
-        
-      } catch (inlineError) {
-        console.error('加载内联数据时出错:', inlineError);
-        // 继续尝试加载外部数据
-      }
-      
-      // 如果内联数据加载失败，尝试加载外部数据
-      if (!loaded) {
-        await loadExternalData(paths, cacheKey);
-      }
-      
-      if (isMounted) {
-        setLoading(false);
-      }
-    };
-    
-    // 加载外部数据的函数
-    const loadExternalData = async (paths: string[], cacheKey: string) => {
-      let loaded = false;
       
       // 首先尝试加载本地JSON文件（如果存在）
       try {
@@ -212,7 +163,14 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
           
           setMetadata(result.metadata);
           setAllData(result.data);
-          setData(result.data.slice(0, PAGE_SIZE));
+          
+          // 只显示第一页数据，并确保rank连续
+          const firstPageData = result.data.slice(0, PAGE_SIZE).map((tool, index) => ({
+            ...tool,
+            rank: index + 1 // 确保rank从1开始连续
+          }));
+          setData(firstPageData);
+          
           setHasMore(result.data.length > PAGE_SIZE);
           
           // 缓存数据
@@ -279,8 +237,12 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
               // 保存所有数据
               setAllData(result.data);
               
-              // 只显示第一页数据
-              setData(result.data.slice(0, PAGE_SIZE));
+              // 只显示第一页数据，并确保rank连续
+              const firstPageData = result.data.slice(0, PAGE_SIZE).map((tool, index) => ({
+                ...tool,
+                rank: index + 1 // 确保rank从1开始连续
+              }));
+              setData(firstPageData);
               
               // 判断是否有更多数据
               setHasMore(result.data.length > PAGE_SIZE);
@@ -294,19 +256,55 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
               
               loaded = true;
               break;
-            } catch (parseError) {
-              console.error(`解析路径 ${path} 的JSON时出错:`, parseError);
-              console.error(`响应文本: ${text}`);
-              continue;
+            } catch (parseErr) {
+              console.error(`解析 ${path} 的JSON数据时出错:`, parseErr);
             }
-          } catch (err) {
-            console.warn(`尝试路径 ${path} 时出错:`, err);
+          } catch (fetchErr) {
+            console.warn(`获取 ${path} 时出错:`, fetchErr);
           }
         }
       }
       
-      if (!loaded && isMounted) {
-        setError(`无法加载数据。尝试了以下路径: ${paths.join(', ')}`);
+      // 如果所有外部数据加载都失败，才尝试使用内联数据
+      if (!loaded) {
+        try {
+          console.log('尝试使用内联数据作为备用');
+          const inlineResult = getInlineData(language, rankingType);
+          
+          // 保存元数据
+          setMetadata(inlineResult.metadata);
+          
+          // 保存所有数据
+          setAllData(inlineResult.data);
+          
+          // 只显示第一页数据，并确保rank连续
+          const firstPageData = inlineResult.data.slice(0, PAGE_SIZE).map((tool, index) => ({
+            ...tool,
+            rank: index + 1 // 确保rank从1开始连续
+          }));
+          setData(firstPageData);
+          
+          // 判断是否有更多数据
+          setHasMore(inlineResult.data.length > PAGE_SIZE);
+          
+          setIsUsingInlineData(true);
+          loaded = true;
+          
+          // 缓存数据
+          dataCache[cacheKey] = {
+            data: inlineResult.data,
+            metadata: inlineResult.metadata,
+            timestamp: now
+          };
+          
+          console.log('成功加载内联数据作为备用');
+        } catch (inlineError) {
+          console.error('加载内联数据时出错:', inlineError);
+        }
+      }
+      
+      if (isMounted) {
+        setLoading(false);
       }
     };
     
@@ -322,21 +320,32 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const loadMore = () => {
     if (loading || !hasMore) return;
     
-    const nextPage = page + 1;
-    const start = page * PAGE_SIZE;
-    const end = nextPage * PAGE_SIZE;
+    // 直接加载所有剩余数据，而不是分页加载
+    console.log('加载所有剩余数据...');
     
-    // 从已加载的所有数据中获取下一页
-    const nextPageData = allData.slice(start, end);
+    // 添加所有剩余数据并确保rank字段连续
+    const updatedData = [...data, ...allData.slice(data.length)].map((tool, index) => ({
+      ...tool,
+      rank: index + 1 // 确保rank从1开始连续
+    }));
     
-    if (nextPageData.length > 0) {
-      setData(prevData => [...prevData, ...nextPageData]);
-      setPage(nextPage);
-      setHasMore(end < allData.length);
-    } else {
-      setHasMore(false);
-    }
+    setData(updatedData);
+    setHasMore(false); // 已加载所有数据
   };
+
+  // 确保数据加载时rank字段连续
+  useEffect(() => {
+    if (data.length > 0) {
+      const updatedData = data.map((tool, index) => ({
+        ...tool,
+        rank: index + 1 // 确保rank从1开始连续
+      }));
+      
+      if (JSON.stringify(updatedData) !== JSON.stringify(data)) {
+        setData(updatedData);
+      }
+    }
+  }, [data.length]);
 
   return { 
     data, 
@@ -473,6 +482,7 @@ export const transformRawData = (rawData: any[]): AITool[] => {
       top_region: item.top_region || '',
       top_region_value: item.top_region_value || 0,
       region_monthly_visits: regionMonthlyVisits || 0, // 使用计算后的值或原始值
+      region: item.region || item.top_region || '', // 添加 region 字段，优先使用 region，如果没有则使用 top_region
       tags: item.tags || item.categories || [],
       growth: typeof item.growth === 'number' ? item.growth : 0,
       growth_rate: typeof item.growth_rate === 'number' ? item.growth_rate : 0,

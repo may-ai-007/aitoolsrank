@@ -16,7 +16,7 @@ interface ShareModalProps {
 
 const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
   const { t } = useTranslation();
-  const { rankingType, language } = useAppContext();
+  const { rankingType, language, selectedRegion } = useAppContext();
   const [generatingImage, setGeneratingImage] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -51,7 +51,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
       setShowShareInfo(false);
       setShowQRCode(false);
     }
-  }, [isOpen, rankingType]);
+  }, [isOpen, rankingType, selectedRegion]);
   
   // 生成要分享的图片
   const generateImage = async () => {
@@ -60,6 +60,12 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
     setGeneratingImage(true);
     
     try {
+      // 确保在生成图片前已经应用了最新的筛选条件
+      console.log(`生成图片，当前选择的区域: ${selectedRegion || 'US'}`);
+      
+      // 延迟一点时间确保DOM已更新
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const canvas = await html2canvas(imageContainerRef.current, {
         scale: 2,
         useCORS: true,
@@ -74,7 +80,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
       const blobData = await (await fetch(dataUrl)).blob();
       
       // 创建 File 对象用于分享
-      const fileName = `airank-${rankingType}-${new Date().toISOString().split('T')[0]}.png`;
+      const fileName = `airank-${rankingType}-${selectedRegion || ''}-${new Date().toISOString().split('T')[0]}.png`;
       const imageFile = new File([blobData], fileName, { type: 'image/png' });
       setImageFile(imageFile);
     } catch (error) {
@@ -160,7 +166,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
     
     const link = document.createElement('a');
     link.href = imageUrl;
-    link.download = `airank-${rankingType}-${new Date().toISOString().split('T')[0]}.png`;
+    link.download = `airank-${rankingType}-${selectedRegion || ''}-${new Date().toISOString().split('T')[0]}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -279,8 +285,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
 
   // 渲染表格行
   const renderTableRows = () => {
-    // 显示前50个工具
-    const visibleTools = tools.slice(0, 50);
+    // 显示前20个工具
+    const visibleTools = tools.slice(0, 20);
     
     return visibleTools.map((tool, index) => {
       // 渲染Logo
