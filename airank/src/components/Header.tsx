@@ -31,6 +31,12 @@ const Header: React.FC<HeaderProps> = ({ onOpenAbout }) => {
       console.log('About link clicked - opening modal');
       onOpenAbout();
     }
+    // 添加对'home'类型的处理，防止空白页面
+    if (page === 'home') {
+      console.log('Home link clicked - navigating to home page');
+      // 使用window.location.hash确保正确导航到首页
+      window.location.hash = '/';
+    }
   };
 
   return (
