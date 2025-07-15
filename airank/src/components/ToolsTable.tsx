@@ -557,13 +557,9 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
           // 地区分布榜：显示地区访问量、增长和主要地区
           baseCells.push(
             <td key="region_traffic" className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-              {tool.region_monthly_visits ? 
+              {tool.region_monthly_visits !== undefined ? 
                 formatNumber(Math.round(tool.region_monthly_visits), language) : 
-                (tool.top_region_value ? 
-                  (tool.top_region_value > 1 ? 
-                    formatNumber(Math.round(tool.top_region_value), language) : 
-                    `${Math.round(tool.top_region_value * 100)}%`
-                  ) : '-')}
+                '-'}
             </td>
           );
           
