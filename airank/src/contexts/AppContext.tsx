@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useRef } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import type { ReactNode } from 'react';
 import type { RankingType } from '../utils/dataUtils';
 
