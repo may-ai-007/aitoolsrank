@@ -183,10 +183,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string, selec
         p.replace('{lang}', language).replace('{type}', rankingType)
       );
       
-      // 添加更多的错误处理和重试逻辑
-      let retryCount = 0;
-      const maxRetries = 3;
-      
       // 首先尝试加载本地JSON文件（如果存在）
       try {
         const localPath = `src/data/${language}/${rankingType}.json`;
@@ -230,9 +226,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string, selec
           if (rankingType === 'region_rank') {
             const groupedData = groupDataByRegion(transformedData);
             setRegionGroupedData(groupedData);
-            
-            // 记录所有可用的地区
-            const availableRegions = Object.keys(groupedData);
             
             // 如果有选中的地区，显示该地区的数据
             if (selectedRegion && groupedData[selectedRegion]) {
@@ -310,9 +303,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string, selec
               if (rankingType === 'region_rank') {
                 const groupedData = groupDataByRegion(transformedData);
                 setRegionGroupedData(groupedData);
-                
-                // 记录所有可用的地区
-                const availableRegions = Object.keys(groupedData);
                 
                 // 如果有选中的地区，显示该地区的数据
                 if (selectedRegion && groupedData[selectedRegion]) {

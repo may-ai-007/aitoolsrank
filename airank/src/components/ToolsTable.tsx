@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaSort, FaSortUp, FaSortDown, FaExternalLinkAlt, FaFilter } from 'react-icons/fa';
 import { useAppContext } from '../contexts/AppContext';
 import type { AITool } from '../utils/dataUtils';
-import { formatNumber, useAIToolsData } from '../utils/dataUtils';
+import { formatNumber } from '../utils/dataUtils';
 import ReactDOM from 'react-dom';
 
 interface ToolsTableProps {
@@ -281,8 +281,6 @@ const ToolsTable: React.FC<ToolsTableProps> = ({
     // 阻止事件冒泡，避免触发其他点击事件
     e.preventDefault();
     e.stopPropagation();
-    
-    const oldRegion = selectedRegion || selectedRegionRef.current;
     
     // 检查是否与当前地区相同，如果相同则不做任何操作
     if (region === selectedRegion || region === selectedRegionRef.current) {
@@ -686,7 +684,6 @@ const ToolsTable: React.FC<ToolsTableProps> = ({
               
               // 检查该地区是否有数据
               const hasData = regionDataMapRef.current[region] && regionDataMapRef.current[region].length > 0;
-              const dataCount = hasData ? regionDataMapRef.current[region].length : 0;
               
               return (
                 <div 
