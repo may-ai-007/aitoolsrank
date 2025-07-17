@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { getInlineData } from './inlineData';
 
 // 定义AI工具的数据结构
@@ -44,17 +44,20 @@ const PAGE_SIZE = 20;
 
 // 尝试不同的数据路径
 const DATA_PATHS = [
+  '/data/{lang}/{type}.json',  // 添加以根目录开始的路径
   './assets/data/{lang}/{type}.json',
   '/assets/data/{lang}/{type}.json',
   'assets/data/{lang}/{type}.json',
   './data/{lang}/{type}.json',
-  '/data/{lang}/{type}.json',
   'data/{lang}/{type}.json',
   '../data/{lang}/{type}.json',
   '../../data/{lang}/{type}.json',
   './src/data/{lang}/{type}.json',
   '/src/data/{lang}/{type}.json',
   'src/data/{lang}/{type}.json',
+  './{lang}/{type}.json?t=' + Date.now(),  // 添加时间戳避免缓存问题
+  '/{lang}/{type}.json?t=' + Date.now(),
+  '{lang}/{type}.json?t=' + Date.now(),
   './{lang}/{type}.json',
   '/{lang}/{type}.json',
   '{lang}/{type}.json'
@@ -76,7 +79,7 @@ const CACHE_EXPIRY = 5 * 60 * 1000; // 5分钟
  * @param language 语言
  * @returns 数据、加载状态、错误信息、加载更多函数和是否有更多数据
  */
-export const useAIToolsData = (rankingType: RankingType, language: string) => {
+export const useAIToolsData = (rankingType: RankingType, language: string, selectedRegion?: string) => {
   const [data, setData] = useState<AITool[]>([]);
   const [allData, setAllData] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -86,6 +89,14 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
   const [dataPath, setDataPath] = useState<string>(`./assets/data/${language}/${rankingType}.json`);
   const [attemptedPaths, setAttemptedPaths] = useState<string[]>([]);
   const [isUsingInlineData, setIsUsingInlineData] = useState<boolean>(false);
+  const [dataLoaded, setDataLoaded] = useState<boolean>(false);
+  
+  // 保存按地区分组的数据
+  const [regionGroupedData, setRegionGroupedData] = useState<Record<string, AITool[]>>({});
+  
+  // 添加初始化完成标志
+  const initializedRef = useRef<boolean>(false);
+  const loadingRef = useRef<boolean>(false);
 
   // 生成缓存键
   const cacheKey = useMemo(() => `${language}_${rankingType}`, [language, rankingType]);
@@ -108,6 +119,17 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
     setAttemptedPaths([]);
     setIsUsingInlineData(false);
     setHasMore(true);
+    setDataLoaded(false);
+    setRegionGroupedData({});
+    initializedRef.current = false; // 重置初始化标志
+    loadingRef.current = false; // 重置加载标志
+    
+    // 确保在组件挂载时设置初始化标志
+    const initializeComponent = () => {
+      if (isMounted) {
+        initializedRef.current = true;
+      }
+    };
     
     const fetchData = async () => {
       // 如果组件已卸载或者没有有效的排名类型或语言，则不执行任何操作
@@ -119,12 +141,37 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       const now = Date.now();
       const cachedData = dataCache[cacheKey];
       if (cachedData && (now - cachedData.timestamp < CACHE_EXPIRY)) {
-        console.log(`使用缓存数据: ${cacheKey}`);
-        setAllData(cachedData.data);
-        setData(cachedData.data.slice(0, PAGE_SIZE));
-        setHasMore(cachedData.data.length > PAGE_SIZE);
+        // 转换数据，确保region_monthly_visits字段正确处理
+        const transformedData = transformRawData(cachedData.data);
+        
+        // 如果是地区分布榜，按地区分组数据
+        if (rankingType === 'region_rank') {
+          const groupedData = groupDataByRegion(transformedData);
+          setRegionGroupedData(groupedData);
+          
+          // 如果有选中的地区，显示该地区的数据
+          if (selectedRegion && groupedData[selectedRegion]) {
+            setData(groupedData[selectedRegion].slice(0, PAGE_SIZE));
+            setHasMore(groupedData[selectedRegion].length > PAGE_SIZE);
+          } else {
+            // 默认显示美国数据
+            const defaultRegion = 'US';
+            setData(groupedData[defaultRegion] ? groupedData[defaultRegion].slice(0, PAGE_SIZE) : []);
+            setHasMore(groupedData[defaultRegion] ? groupedData[defaultRegion].length > PAGE_SIZE : false);
+          }
+        } else {
+          // 其他榜单正常显示
+          setData(transformedData.slice(0, PAGE_SIZE));
+          setHasMore(transformedData.length > PAGE_SIZE);
+        }
+        
+        setAllData(transformedData);
         setMetadata(cachedData.metadata);
         setLoading(false);
+        setDataLoaded(true);
+        
+        // 设置初始化标志
+        setTimeout(initializeComponent, 300);
         return;
       }
       
@@ -136,56 +183,91 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
         p.replace('{lang}', language).replace('{type}', rankingType)
       );
       
-      console.log(`开始尝试加载数据，排名类型: ${rankingType}, 语言: ${language}`);
+      // 添加更多的错误处理和重试逻辑
+      let retryCount = 0;
+      const maxRetries = 3;
       
       // 首先尝试加载本地JSON文件（如果存在）
       try {
-        console.log(`尝试直接加载本地JSON文件: src/data/${language}/${rankingType}.json`);
         const localPath = `src/data/${language}/${rankingType}.json`;
         setAttemptedPaths(prev => [...prev, localPath]);
         
+        // 使用fetch API加载数据，添加更多选项
         const response = await fetch(localPath, {
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
-          }
+          },
+          credentials: 'same-origin',
+          mode: 'cors'
         });
-        
-        console.log(`本地路径 ${localPath} 的状态码: ${response.status}`);
         
         if (response.ok) {
           const text = await response.text();
-          const result: ApiResponse = JSON.parse(text);
+          
+          // 检查文本是否为空
+          if (!text || text.trim() === '') {
+            throw new Error('Empty response');
+          }
+          
+          // 尝试解析JSON，添加错误处理
+          let result: ApiResponse;
+          try {
+            result = JSON.parse(text);
+          } catch (parseError) {
+            throw parseError;
+          }
           
           if (!isMounted) return;
           
-          console.log(`成功从本地路径 ${localPath} 加载数据`);
-          
+          // 保存元数据
           setMetadata(result.metadata);
-          setAllData(result.data);
           
-          // 只显示第一页数据，并确保rank连续
-          const firstPageData = result.data.slice(0, PAGE_SIZE).map((tool, index) => ({
-            ...tool,
-            rank: index + 1 // 确保rank从1开始连续
-          }));
-          setData(firstPageData);
+          // 转换数据，确保region_monthly_visits字段正确处理
+          const transformedData = transformRawData(result.data);
           
-          setHasMore(result.data.length > PAGE_SIZE);
+          // 如果是地区分布榜，按地区分组数据
+          if (rankingType === 'region_rank') {
+            const groupedData = groupDataByRegion(transformedData);
+            setRegionGroupedData(groupedData);
+            
+            // 记录所有可用的地区
+            const availableRegions = Object.keys(groupedData);
+            
+            // 如果有选中的地区，显示该地区的数据
+            if (selectedRegion && groupedData[selectedRegion]) {
+              setData(groupedData[selectedRegion].slice(0, PAGE_SIZE));
+              setHasMore(groupedData[selectedRegion].length > PAGE_SIZE);
+            } else {
+              // 默认显示美国数据
+              const defaultRegion = 'US';
+              setData(groupedData[defaultRegion] ? groupedData[defaultRegion].slice(0, PAGE_SIZE) : []);
+              setHasMore(groupedData[defaultRegion] ? groupedData[defaultRegion].length > PAGE_SIZE : false);
+            }
+          } else {
+            // 其他榜单正常显示
+            setData(transformedData.slice(0, PAGE_SIZE));
+            setHasMore(transformedData.length > PAGE_SIZE);
+          }
+          
+          // 保存所有数据
+          setAllData(transformedData);
           
           // 缓存数据
           dataCache[cacheKey] = {
-            data: result.data,
+            data: result.data, // 缓存原始数据
             metadata: result.metadata,
             timestamp: Date.now()
           };
           
           loaded = true;
+          setDataLoaded(true);
+          setLoading(false); // 确保设置loading为false
         } else {
-          console.warn(`本地路径 ${localPath} 加载失败: ${response.status}`);
+          // 加载失败
         }
       } catch (localErr) {
-        console.warn(`尝试加载本地JSON文件时出错:`, localErr);
+        // 处理错误
       }
       
       // 如果本地加载失败，尝试其他路径
@@ -194,7 +276,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
           if (loaded) break;
           
           try {
-            console.log(`尝试加载数据: ${path}`);
             setAttemptedPaths(prev => [...prev, path]);
             
             // 获取数据
@@ -205,22 +286,12 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
               }
             });
             
-            console.log(`路径 ${path} 的状态码: ${response.status}`);
-            
             if (!response.ok) {
-              console.warn(`路径 ${path} 加载失败: ${response.status} ${response.statusText}`);
               continue;
             }
             
-            // 记录响应的内容类型
-            const contentType = response.headers.get('content-type');
-            console.log(`路径 ${path} 的内容类型: ${contentType}`);
-            
             // 获取响应文本
             const text = await response.text();
-            
-            // 记录响应的前100个字符，用于调试
-            console.log(`路径 ${path} 的响应前100个字符: ${text.substring(0, 100)}`);
             
             try {
               // 尝试解析JSON
@@ -229,23 +300,38 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
               // 确保组件仍然挂载
               if (!isMounted) return;
               
-              console.log(`成功从 ${path} 加载数据`);
-              
               // 保存元数据
               setMetadata(result.metadata);
               
+              // 转换数据，确保region_monthly_visits字段正确处理
+              const transformedData = transformRawData(result.data);
+              
+              // 如果是地区分布榜，按地区分组数据
+              if (rankingType === 'region_rank') {
+                const groupedData = groupDataByRegion(transformedData);
+                setRegionGroupedData(groupedData);
+                
+                // 记录所有可用的地区
+                const availableRegions = Object.keys(groupedData);
+                
+                // 如果有选中的地区，显示该地区的数据
+                if (selectedRegion && groupedData[selectedRegion]) {
+                  setData(groupedData[selectedRegion].slice(0, PAGE_SIZE));
+                  setHasMore(groupedData[selectedRegion].length > PAGE_SIZE);
+                } else {
+                  // 默认显示美国数据
+                  const defaultRegion = 'US';
+                  setData(groupedData[defaultRegion] ? groupedData[defaultRegion].slice(0, PAGE_SIZE) : []);
+                  setHasMore(groupedData[defaultRegion] ? groupedData[defaultRegion].length > PAGE_SIZE : false);
+                }
+              } else {
+                // 其他榜单正常显示
+                setData(transformedData.slice(0, PAGE_SIZE));
+                setHasMore(transformedData.length > PAGE_SIZE);
+              }
+              
               // 保存所有数据
-              setAllData(result.data);
-              
-              // 只显示第一页数据，并确保rank连续
-              const firstPageData = result.data.slice(0, PAGE_SIZE).map((tool, index) => ({
-                ...tool,
-                rank: index + 1 // 确保rank从1开始连续
-              }));
-              setData(firstPageData);
-              
-              // 判断是否有更多数据
-              setHasMore(result.data.length > PAGE_SIZE);
+              setAllData(transformedData);
               
               // 缓存数据
               dataCache[cacheKey] = {
@@ -255,12 +341,14 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
               };
               
               loaded = true;
+              setDataLoaded(true);
+              setLoading(false); // 确保设置loading为false
               break;
             } catch (parseErr) {
-              console.error(`解析 ${path} 的JSON数据时出错:`, parseErr);
+              // 处理解析错误
             }
           } catch (fetchErr) {
-            console.warn(`获取 ${path} 时出错:`, fetchErr);
+            // 处理获取错误
           }
         }
       }
@@ -268,7 +356,6 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
       // 如果所有外部数据加载都失败，才尝试使用内联数据
       if (!loaded) {
         try {
-          console.log('尝试使用内联数据作为备用');
           const inlineResult = getInlineData(language, rankingType);
           
           // 保存元数据
@@ -289,6 +376,8 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
           
           setIsUsingInlineData(true);
           loaded = true;
+          setDataLoaded(true);
+          setLoading(false); // 确保设置loading为false
           
           // 缓存数据
           dataCache[cacheKey] = {
@@ -296,16 +385,20 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
             metadata: inlineResult.metadata,
             timestamp: now
           };
-          
-          console.log('成功加载内联数据作为备用');
         } catch (inlineError) {
-          console.error('加载内联数据时出错:', inlineError);
+          // 即使内联数据加载失败，也要重置loading状态
+          setLoading(false);
         }
       }
       
-      if (isMounted) {
+      // 如果仍然没有加载到数据，设置错误状态
+      if (!loaded) {
         setLoading(false);
+        setError(`无法加载数据，所有尝试都失败了。`);
       }
+      
+      // 无论成功与否，都设置初始化标志
+      setTimeout(initializeComponent, 300);
     };
     
     fetchData();
@@ -314,38 +407,231 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
     return () => {
       isMounted = false;
     };
-  }, [rankingType, language, cacheKey]);
+  }, [rankingType, language, dataPath, cacheKey, selectedRegion]);
+
+  // 当选中的地区变化时，更新显示的数据
+  useEffect(() => {
+    // 只有在地区分布榜且数据已加载的情况下才处理
+    if (rankingType === 'region_rank' && dataLoaded && Object.keys(regionGroupedData).length > 0) {
+      
+      if (selectedRegion && regionGroupedData[selectedRegion]) {
+        
+        // 显示该地区的数据
+        setData(regionGroupedData[selectedRegion].slice(0, PAGE_SIZE));
+        setHasMore(regionGroupedData[selectedRegion].length > PAGE_SIZE);
+      } else {
+        // 默认显示美国数据
+        const defaultRegion = 'US';
+        
+        if (regionGroupedData[defaultRegion]) {
+          setData(regionGroupedData[defaultRegion].slice(0, PAGE_SIZE));
+          setHasMore(regionGroupedData[defaultRegion].length > PAGE_SIZE);
+        } else {
+          setData([]);
+          setHasMore(false);
+        }
+      }
+    }
+  }, [selectedRegion, rankingType, dataLoaded, regionGroupedData]);
 
   // 加载更多数据
   const loadMore = () => {
-    if (loading || !hasMore) return;
+    // 如果正在加载或没有更多数据，直接返回
+    if (loading || loadingRef.current || !hasMore) {
+      return;
+    }
     
-    // 直接加载所有剩余数据，而不是分页加载
-    console.log('加载所有剩余数据...');
+    // 设置加载状态
+    setLoading(true);
+    loadingRef.current = true;
     
-    // 添加所有剩余数据并确保rank字段连续
-    const updatedData = [...data, ...allData.slice(data.length)].map((tool, index) => ({
-      ...tool,
-      rank: index + 1 // 确保rank从1开始连续
-    }));
-    
-    setData(updatedData);
-    setHasMore(false); // 已加载所有数据
+    try {
+      const currentLength = data.length;
+      
+      // 如果是地区分布榜，从分组数据中加载
+      if (rankingType === 'region_rank') {
+        const currentRegion = selectedRegion || 'US';
+        
+        const regionData = regionGroupedData[currentRegion] || [];
+        
+        if (regionData.length === 0) {
+          setHasMore(false);
+          setLoading(false);
+          loadingRef.current = false;
+          initializedRef.current = true; // 确保初始化标志设置为true
+          return;
+        }
+        
+        // 计算下一页数据
+        const nextPageData = regionData.slice(currentLength, currentLength + PAGE_SIZE);
+        
+        if (nextPageData.length > 0) {
+          // 添加下一页数据并确保rank字段连续
+          const updatedData = [...data, ...nextPageData].map((tool, index) => ({
+            ...tool,
+            rank: index + 1 // 确保rank从1开始连续
+          }));
+          
+          // 延迟更新状态，避免UI闪烁
+          setTimeout(() => {
+            setData(updatedData);
+            const hasMoreData = currentLength + nextPageData.length < regionData.length;
+            setHasMore(hasMoreData);
+            setLoading(false);
+            // 延迟重置loadingRef，给UI时间渲染
+            setTimeout(() => {
+              loadingRef.current = false;
+              // 确保初始化标志设置为true
+              initializedRef.current = true;
+            }, 300);
+          }, 200);
+        } else {
+          setHasMore(false);
+          setLoading(false);
+          setTimeout(() => {
+            loadingRef.current = false;
+            initializedRef.current = true;
+          }, 300);
+        }
+      } else {
+        // 其他tab使用原有逻辑
+        
+        if (allData.length === 0) {
+          setHasMore(false);
+          setLoading(false);
+          loadingRef.current = false;
+          initializedRef.current = true; // 确保初始化标志设置为true
+          return;
+        }
+        
+        // 对于首次加载，可能需要重新从allData中获取数据
+        if (currentLength === 0 && allData.length > 0) {
+          const firstPageData = allData.slice(0, PAGE_SIZE).map((tool, index) => ({
+            ...tool,
+            rank: index + 1
+          }));
+          
+          setTimeout(() => {
+            setData(firstPageData);
+            setHasMore(allData.length > PAGE_SIZE);
+            setLoading(false);
+            loadingRef.current = false;
+            initializedRef.current = true;
+          }, 200);
+          return;
+        }
+        
+        const nextPageData = allData.slice(currentLength, currentLength + PAGE_SIZE);
+        
+        if (nextPageData.length > 0) {
+          // 添加下一页数据并确保rank字段连续
+          const updatedData = [...data, ...nextPageData].map((tool, index) => ({
+            ...tool,
+            rank: index + 1 // 确保rank从1开始连续
+          }));
+          
+          // 延迟更新状态，避免UI闪烁
+          setTimeout(() => {
+            setData(updatedData);
+            const hasMoreData = currentLength + nextPageData.length < allData.length;
+            setHasMore(hasMoreData);
+            setLoading(false);
+            // 延迟重置loadingRef，给UI时间渲染
+            setTimeout(() => {
+              loadingRef.current = false;
+              // 确保初始化标志设置为true
+              initializedRef.current = true;
+            }, 300);
+          }, 200);
+        } else {
+          setHasMore(false);
+          setLoading(false);
+          setTimeout(() => {
+            loadingRef.current = false;
+            initializedRef.current = true;
+          }, 300);
+        }
+      }
+    } catch (error) {
+      setHasMore(false);
+      setLoading(false);
+      loadingRef.current = false;
+      // 确保初始化标志设置为true，即使出错也能继续尝试加载
+      initializedRef.current = true;
+    }
   };
 
-  // 确保数据加载时rank字段连续
+  // 当rankingType变化时，需要重置加载状态
   useEffect(() => {
-    if (data.length > 0) {
-      const updatedData = data.map((tool, index) => ({
+    // 重置加载状态
+    loadingRef.current = false;
+    
+    // 延迟执行，确保在状态更新后执行
+    setTimeout(() => {
+      // 如果有数据但未加载第一页，尝试加载
+      if (allData.length > 0 && data.length === 0) {
+        loadMore();
+      }
+    }, 100);
+  }, [rankingType]);
+
+  // 确保数据加载时rank字段连续并设置初始化标志
+  useEffect(() => {
+    if (data.length > 0 && !loading) {
+      // 确保初始化标志设置为true
+      setTimeout(() => {
+        initializedRef.current = true;
+      }, 300);
+    }
+  }, [data.length, loading]);
+
+  // 为非地区分布tab页添加特殊处理，确保数据正确加载
+  useEffect(() => {
+    // 只处理非地区分布tab页
+    if (rankingType !== 'region_rank' && dataLoaded && allData.length > 0 && data.length === 0) {
+      // 加载第一页数据
+      const firstPageData = allData.slice(0, PAGE_SIZE).map((tool, index) => ({
         ...tool,
-        rank: index + 1 // 确保rank从1开始连续
+        rank: index + 1
       }));
       
-      if (JSON.stringify(updatedData) !== JSON.stringify(data)) {
-        setData(updatedData);
-      }
+      setData(firstPageData);
+      setHasMore(allData.length > PAGE_SIZE);
+      initializedRef.current = true;
     }
-  }, [data.length]);
+  }, [rankingType, dataLoaded, allData.length, data.length]);
+  
+  // 重要：添加首次加载数据的处理
+  useEffect(() => {
+    // 如果数据已加载但未显示，且不在加载中，则尝试显示第一页
+    if (allData.length > 0 && data.length === 0 && !loading && !loadingRef.current) {
+      loadMore();
+    }
+  }, [allData.length, data.length, loading, rankingType]);
+  
+  // 添加首次渲染时的强制数据加载
+  const firstRenderRef = useRef(true);
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      
+      // 延迟执行，确保组件已经完全挂载
+      setTimeout(() => {
+        if (allData.length > 0 && data.length === 0 && !loading) {
+          // 直接设置第一页数据，不通过loadMore
+          const firstPageData = allData.slice(0, PAGE_SIZE).map((tool, index) => ({
+            ...tool,
+            rank: index + 1
+          }));
+          
+          setData(firstPageData);
+          setHasMore(allData.length > PAGE_SIZE);
+          setLoading(false);
+          loadingRef.current = false;
+        }
+      }, 500);
+    }
+  }, []);
 
   return { 
     data, 
@@ -355,7 +641,8 @@ export const useAIToolsData = (rankingType: RankingType, language: string) => {
     hasMore, 
     metadata, 
     attemptedPaths, 
-    isUsingInlineData 
+    isUsingInlineData,
+    regionGroupedData // 添加按地区分组的数据
   };
 };
 
@@ -463,11 +750,32 @@ export const formatIncome = (income: number): string => {
 
 // 将transformRawData标记为导出函数，避免未使用警告
 export const transformRawData = (rawData: any[]): AITool[] => {
+  
+  // 检查是否有缺失的region_monthly_visits字段
+  const missingVisits = rawData.filter(item => 
+    (item.region_monthly_visits === undefined || item.region_monthly_visits === null) &&
+    item.monthly_visits && item.top_region_value
+  ).length;
+  
+  if (missingVisits > 0) {
+  }
+  
   return rawData.map(item => {
-    // 如果是region_rank类型且没有region_monthly_visits字段，从monthly_visits和top_region_value计算
+    // 直接使用API返回的region_monthly_visits，不进行计算替代
+    // 确保region_monthly_visits是有效的数值
     let regionMonthlyVisits = item.region_monthly_visits;
-    if (regionMonthlyVisits === undefined && item.monthly_visits && item.top_region_value) {
+    
+    // 如果region_monthly_visits未定义，但有monthly_visits和top_region_value，则计算它
+    if ((regionMonthlyVisits === undefined || regionMonthlyVisits === null) && 
+        item.monthly_visits && item.top_region_value) {
       regionMonthlyVisits = Math.round(item.monthly_visits * item.top_region_value);
+    }
+    
+    // 确保region字段存在
+    const region = item.region || item.top_region || '';
+    
+    // 记录所有地区的region_monthly_visits值
+    if (regionMonthlyVisits !== undefined && regionMonthlyVisits !== null) {
     }
     
     return {
@@ -481,8 +789,8 @@ export const transformRawData = (rawData: any[]): AITool[] => {
       top_visits: item.top_visits || item.monthly_visits || 0,
       top_region: item.top_region || '',
       top_region_value: item.top_region_value || 0,
-      region_monthly_visits: regionMonthlyVisits || 0, // 使用计算后的值或原始值
-      region: item.region || item.top_region || '', // 添加 region 字段，优先使用 region，如果没有则使用 top_region
+      region_monthly_visits: regionMonthlyVisits, // 使用计算后的值
+      region: region, // 确保region字段存在
       tags: item.tags || item.categories || [],
       growth: typeof item.growth === 'number' ? item.growth : 0,
       growth_rate: typeof item.growth_rate === 'number' ? item.growth_rate : 0,
@@ -490,4 +798,51 @@ export const transformRawData = (rawData: any[]): AITool[] => {
       payment_platform: item.payment_platform || ''
     };
   });
+};
+
+// 按地区分组数据
+const groupDataByRegion = (data: AITool[]): Record<string, AITool[]> => {
+  const groupedData: Record<string, AITool[]> = {};
+  
+  data.forEach(tool => {
+    // 确定工具所属的地区
+    const region = tool.region || tool.top_region;
+    if (region) {
+      if (!groupedData[region]) {
+        groupedData[region] = [];
+      }
+      
+      // 确保region_monthly_visits字段存在
+      if ((tool.region_monthly_visits === undefined || tool.region_monthly_visits === null) && 
+          tool.monthly_visits && tool.top_region_value) {
+        tool.region_monthly_visits = Math.round(tool.monthly_visits * tool.top_region_value);
+      }
+      
+      // 检查是否已经存在相同ID的工具，避免重复添加
+      const existingToolIndex = groupedData[region].findIndex(t => t.id === tool.id);
+      if (existingToolIndex === -1) {
+        groupedData[region].push({
+          ...tool,
+          region // 确保region字段存在
+        });
+      }
+    }
+  });
+  
+  // 对每个地区的数据按照region_monthly_visits排序
+  Object.keys(groupedData).forEach(region => {
+    groupedData[region].sort((a, b) => {
+      const valueA = a.region_monthly_visits !== undefined ? Number(a.region_monthly_visits) : 0;
+      const valueB = b.region_monthly_visits !== undefined ? Number(b.region_monthly_visits) : 0;
+      return valueB - valueA; // 降序排序
+    });
+    
+    // 重新设置rank
+    groupedData[region] = groupedData[region].map((tool, index) => ({
+      ...tool,
+      rank: index + 1
+    }));
+  });
+  
+  return groupedData;
 };

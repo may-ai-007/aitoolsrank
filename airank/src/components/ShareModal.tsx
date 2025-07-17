@@ -61,7 +61,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
     
     try {
       // 确保在生成图片前已经应用了最新的筛选条件
-      console.log(`生成图片，当前选择的区域: ${selectedRegion || 'US'}`);
       
       // 延迟一点时间确保DOM已更新
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -84,7 +83,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
       const imageFile = new File([blobData], fileName, { type: 'image/png' });
       setImageFile(imageFile);
     } catch (error) {
-      console.error('生成图片时出错:', error);
+      // console.error('生成图片时出错:', error);
     } finally {
       setGeneratingImage(false);
     }
@@ -113,10 +112,10 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, tools }) => {
           url: window.location.href,
           files: [imageFile]
         });
-        console.log('分享成功');
+        // console.log('分享成功');
       return;
       } catch (error) {
-        console.error('Web Share API分享失败:', error);
+        // console.error('Web Share API分享失败:', error);
         // 继续使用平台特定的分享方法
       }
     }

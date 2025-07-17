@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaSort, FaSortUp, FaSortDown, FaExternalLinkAlt, FaFilter } from 'react-icons/fa';
 import { useAppContext } from '../contexts/AppContext';
 import type { AITool } from '../utils/dataUtils';
-import { formatNumber } from '../utils/dataUtils';
+import { formatNumber, useAIToolsData } from '../utils/dataUtils';
 import ReactDOM from 'react-dom';
 
 interface ToolsTableProps {
@@ -11,20 +11,25 @@ interface ToolsTableProps {
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  regionGroupedData?: Record<string, AITool[]>; // 添加按地区分组的数据
 }
 
 type SortField = 'rank' | 'name' | 'monthly_visits' | 'growth' | 'growth_rate' | 'top_region' | 'estimated_income' | 'payment_platform' | 'top_region_value' | 'region_monthly_visits';
 type SortDirection = 'asc' | 'desc';
 
-const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, hasMore }) => {
+const ToolsTable: React.FC<ToolsTableProps> = ({ 
+  tools, 
+  loading, 
+  onLoadMore, 
+  hasMore,
+  regionGroupedData = {} // 默认为空对象
+}) => {
   const { t } = useTranslation();
   const { rankingType, language, selectedRegion, setSelectedRegion } = useAppContext();
   
   // 确保初始化时，如果是地区分布tab，selectedRegion设置为'US'
-  const initialRegion = rankingType === 'region_rank' ? 'US' : '';
   const [sortField, setSortField] = useState<SortField>('rank');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  // 移除本地的selectedRegion状态，使用AppContext中的
   const [showRegionFilter, setShowRegionFilter] = useState<boolean>(false);
   
   // 记录所有可用的地区（不随滚动变化）
@@ -34,132 +39,143 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
     'PK', 'TH', 'TR', 'NG', 'MA', 'PE', 'CO', 'NL', 'PL', 'UA'
   ]);
   
-  // 获取所有可用的地区（随数据加载变化）
-  const availableRegions = useMemo(() => {
-    if (!tools || tools.length === 0 || rankingType !== 'region_rank') return [];
-    
-    const regions = new Set<string>();
-    tools.forEach(tool => {
-      // 优先使用 region 字段，如果没有则使用 top_region 字段
-      if (tool.region) {
-        regions.add(tool.region);
-      } else if (tool.top_region) {
-        regions.add(tool.top_region);
-      }
-    });
-    
-    return Array.from(regions).sort();
-  }, [tools, rankingType]);
-
-  // 重要：在rankingType变化时重置排序状态
+  // 存储每个地区的数据，避免重复筛选
+  const regionDataMapRef = useRef<Record<string, AITool[]>>(regionGroupedData || {});
+  
+  // 记录当前选择的地区
+  const selectedRegionRef = useRef<string>(selectedRegion || 'US');
+  
+  // 防止重复加载的标志
+  const isLoadingRef = useRef<boolean>(false);
+  
+  // 记录当前rankingType以便在改变时重置状态
+  const prevRankingTypeRef = useRef<string | null>(null);
+  
+  // 首次渲染标志
+  const firstRenderRef = useRef<boolean>(true);
+  
+  // 首次加载数据
   useEffect(() => {
-    // 重置为默认排序
-    setSortField('rank');
-    setSortDirection('asc');
-    // 关闭地区筛选器
-    setShowRegionFilter(false);
-    // 重置加载标记
-    loadedBatchesRef.current = false;
-    setHasLoadedMore(false);
+    if (firstRenderRef.current && tools.length > 0) {
+      firstRenderRef.current = false;
+      
+      // 如果已经有数据，确保不在loading状态
+      isLoadingRef.current = false;
+    }
+  }, [tools.length, rankingType]);
+  
+  // 重要：在rankingType变化时重置排序状态和加载状态
+  useEffect(() => {
+    // 检测rankingType是否改变
+    if (prevRankingTypeRef.current !== rankingType) {
+      
+      // 重置为默认排序
+      setSortField('rank');
+      setSortDirection('asc');
+      
+      // 关闭地区筛选器
+      setShowRegionFilter(false);
+      
+      // 重要：重置加载状态，避免从地区分布tab切换回来后状态错误
+      isLoadingRef.current = false;
+      
+      // 更新当前rankingType记录
+      prevRankingTypeRef.current = rankingType;
+      
+      // 清除所有可能的定时器
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+      
+      if (scrollDebounceTimerRef.current) {
+        clearTimeout(scrollDebounceTimerRef.current);
+        scrollDebounceTimerRef.current = null;
+      }
+      
+      // 重置hasRecentlyLoaded状态
+      hasRecentlyLoaded.current = false;
+    }
   }, [rankingType]);
   
-  // 记录上一次选择的地区，防止滚动时重置
-  const selectedRegionRef = useRef<string>(initialRegion);
+  // 更新引用值以保持同步
+  useEffect(() => {
+    if (selectedRegion) {
+      selectedRegionRef.current = selectedRegion;
+    }
+  }, [selectedRegion]);
   
-  // 增加一个状态跟踪是否已经加载了更多数据
-  const [hasLoadedMore, setHasLoadedMore] = useState<boolean>(false);
+  // 更新regionDataMapRef
+  useEffect(() => {
+    if (Object.keys(regionGroupedData).length > 0) {
+      regionDataMapRef.current = regionGroupedData;
+    }
+  }, [regionGroupedData]);
   
-  // 添加一个引用，用于跟踪是否已加载所有数据
-  const loadedBatchesRef = useRef<boolean>(false);
-  
-  // 修改根据选择的地区筛选数据的逻辑
+  // 根据选择的地区筛选数据
   const filteredByRegionTools = useMemo(() => {
     if (!tools || tools.length === 0) return [];
     
     // 只在地区分布tab页下进行地区筛选
     if (rankingType === 'region_rank') {
-      // 确保有选择地区，优先使用已选择的地区，其次使用引用中的地区，最后使用'US'
-      const regionToFilter = selectedRegion || selectedRegionRef.current || 'US';
+      const currentRegion = selectedRegion || selectedRegionRef.current || 'US';
       
-      if (!regionToFilter) {
-        return [];
+      // 优先使用regionGroupedData中的数据
+      if (regionDataMapRef.current[currentRegion] && regionDataMapRef.current[currentRegion].length > 0) {
+        return regionDataMapRef.current[currentRegion];
       }
       
-      // 直接筛选出所有匹配该区域的数据，不做复杂的逻辑判断
-      return tools.filter(tool => 
-        tool.region === regionToFilter || tool.top_region === regionToFilter
+      // 如果缓存中没有，则从tools中筛选
+      const filtered = tools.filter(tool => {
+        // 检查region或top_region是否匹配当前地区
+        const isCurrentRegion = tool.region === currentRegion || tool.top_region === currentRegion;
+        
+        // 如果匹配，确保region_monthly_visits字段存在
+        if (isCurrentRegion) {
+          // 如果region_monthly_visits缺失，尝试计算
+          if ((tool.region_monthly_visits === undefined || tool.region_monthly_visits === null) && 
+              tool.monthly_visits && tool.top_region_value) {
+            tool.region_monthly_visits = Math.round(tool.monthly_visits * tool.top_region_value);
+          }
+        }
+        
+        return isCurrentRegion;
+      });
+      
+      // 检查数据中是否有region_monthly_visits字段
+      const hasVisitsData = filtered.some(tool => 
+        tool.region_monthly_visits !== undefined && tool.region_monthly_visits !== null
       );
+      
+      if (!hasVisitsData) {
+        
+      }
+      
+      // 更新缓存
+      if (filtered.length > 0) {
+        regionDataMapRef.current[currentRegion] = filtered;
+      }
+      
+      return filtered;
     }
     
     return tools;
-  }, [tools, rankingType, selectedRegion, selectedRegionRef]);
+  }, [tools, rankingType, selectedRegion, regionGroupedData]);
   
-  // 初始化时确保正确设置默认区域，并加载所有数据
+  // 初始化时确保正确设置默认区域
   useEffect(() => {
-    // 确保在地区分布tab下默认选择美国或者保持用户的选择
-    if (rankingType === 'region_rank') {
-      // 检查数据是否已加载
-      if (tools && tools.length > 0) {
-        // 如果已经有选择的地区，并且该地区在可用地区中，则保持选择
-        if (selectedRegion && allAvailableRegions.includes(selectedRegion)) {
-          // 已经设置好了，不需要再次设置
-          selectedRegionRef.current = selectedRegion;
-        } else {
-          // 检查是否有美国数据
-          const hasUSData = tools.some(tool => (tool.region === 'US' || tool.top_region === 'US'));
-          
-          if (hasUSData) {
-            // 如果有美国数据，设置为美国
-            setSelectedRegion('US');
-            selectedRegionRef.current = 'US';
-          } else if (availableRegions.length > 0) {
-            // 如果没有美国数据但有其他地区的数据，则选择第一个可用地区
-            setSelectedRegion(availableRegions[0]);
-            selectedRegionRef.current = availableRegions[0];
-          }
-        }
-      } else if (!selectedRegion) {
-        // 如果没有选择区域，默认设置为US
-        setSelectedRegion('US');
-        selectedRegionRef.current = 'US';
-      }
+    // 只在首次加载时执行一次
+    if (rankingType === 'region_rank' && !selectedRegionRef.current) {
+      // 设置默认区域为US
       
-      // 确保所有数据都已加载
-      if (hasMore && !loading && !loadedBatchesRef.current) {
-        loadedBatchesRef.current = true;
-        console.log('初始化时加载所有数据...');
-        onLoadMore(); // 修改后的loadMore函数会加载所有数据
-      }
-    } else {
-      // 其他tab页不需要地区筛选
-      // 不再需要重置selectedRegion，因为它现在是全局状态
-      // 切换tab时重置加载标记
-      loadedBatchesRef.current = false;
-    }
-  }, [rankingType, tools, availableRegions, allAvailableRegions, selectedRegion, hasMore, loading, onLoadMore, setSelectedRegion]);
-  
-  // 改进数据加载逻辑，确保数据能被正确加载
-  useEffect(() => {
-    // 如果当前选择的是地区分布标签页，并且有工具数据
-    if (rankingType === 'region_rank' && tools.length > 0) {
-      // 获取当前选择的区域
-      const currentRegion = selectedRegion || selectedRegionRef.current;
-      if (currentRegion) {
-        // 查找是否有该区域的数据
-        const regionTools = tools.filter(tool => 
-          tool.region === currentRegion || tool.top_region === currentRegion
-        );
-        
-        // 如果当前筛选后无数据，但实际有该区域的数据，则重新触发筛选
-        if (filteredByRegionTools.length === 0 && regionTools.length > 0) {
-          // 使用setTimeout避免状态更新冲突
-          setTimeout(() => {
-            setSelectedRegion(currentRegion);
-          }, 0);
-        }
+      selectedRegionRef.current = 'US';
+      
+      // 只有当当前值不是US时才更新，避免不必要的重渲染
+      if (selectedRegion !== 'US') {
+        setSelectedRegion('US');
       }
     }
-  }, [rankingType, tools, selectedRegion, filteredByRegionTools]);
+  }, [rankingType, selectedRegion, setSelectedRegion]);
   
   // 中文状态下表头样式
   const getHeaderStyle = useCallback(() => {
@@ -167,6 +183,47 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
       ? { whiteSpace: 'nowrap' as const, minWidth: '80px' } 
       : { whiteSpace: 'nowrap' as const };
   }, [language]);
+  
+  // 预加载所有地区数据
+  useEffect(() => {
+    if (rankingType === 'region_rank' && tools.length > 0) {
+      
+      // 获取所有可用的地区
+      const availableRegions = new Set<string>();
+      tools.forEach(tool => {
+        if (tool.region) availableRegions.add(tool.region);
+        if (tool.top_region) availableRegions.add(tool.top_region);
+      });
+      
+      
+      // 预处理每个地区的数据
+      Array.from(availableRegions).forEach(region => {
+        // 如果缓存中已有该地区数据，跳过
+        if (regionDataMapRef.current[region] && regionDataMapRef.current[region].length > 0) {
+          return;
+        }
+        
+        // 筛选该地区的数据
+        const regionTools = tools.filter(tool => 
+          tool.region === region || tool.top_region === region
+        );
+        
+        if (regionTools.length > 0) {
+          
+          // 确保region_monthly_visits字段存在
+          regionTools.forEach(tool => {
+            if ((tool.region_monthly_visits === undefined || tool.region_monthly_visits === null) && 
+                tool.monthly_visits && tool.top_region_value) {
+              tool.region_monthly_visits = Math.round(tool.monthly_visits * tool.top_region_value);
+            }
+          });
+          
+          // 缓存该地区的数据
+          regionDataMapRef.current[region] = regionTools;
+        }
+      });
+    }
+  }, [rankingType, tools]);
   
   // Handle sorting
   const handleSort = useCallback((field: SortField) => {
@@ -197,7 +254,18 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
           ? valA.localeCompare(valB)
           : valB.localeCompare(valA);
       } else {
-        // For numbers and other types
+        // 特殊处理region_monthly_visits字段，保持undefined值
+        if (sortField === 'region_monthly_visits') {
+          // 如果值是undefined，在升序排序时将其放在最后，降序排序时放在最前
+          if (valA === undefined && valB === undefined) return 0;
+          if (valA === undefined) return sortDirection === 'asc' ? 1 : -1;
+          if (valB === undefined) return sortDirection === 'asc' ? -1 : 1;
+          
+          // 都有值时正常比较
+          return sortDirection === 'asc' ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
+        }
+        
+        // 其他数字字段的处理
         valA = Number(valA || 0);
         valB = Number(valB || 0);
         return sortDirection === 'asc' ? valA - valB : valB - valA;
@@ -214,21 +282,37 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
     e.preventDefault();
     e.stopPropagation();
     
-    console.log(`切换到区域: ${region}`);
+    const oldRegion = selectedRegion || selectedRegionRef.current;
+    
+    // 检查是否与当前地区相同，如果相同则不做任何操作
+    if (region === selectedRegion || region === selectedRegionRef.current) {
+      
+      setShowRegionFilter(false);
+      return;
+    }
+    
+    // 预先检查是否有该地区的数据
+    const hasRegionData = regionDataMapRef.current[region] && regionDataMapRef.current[region].length > 0;
+    if (!hasRegionData) {
+      
+    } else {
+      
+    }
     
     // 立即更新选中的地区
+    selectedRegionRef.current = region; // 先更新引用值，确保其他地方能立即读取到新值
     setSelectedRegion(region);
-    selectedRegionRef.current = region; // 更新引用值
+    
+    // 强制刷新一次数据过滤逻辑
     
     // 关闭筛选器
     setShowRegionFilter(false);
-  }, [setSelectedRegion]);
+  }, [setSelectedRegion, selectedRegion]);
   
   // 切换地区筛选器的显示/隐藏
   const toggleRegionFilter = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('切换区域筛选器显示状态');
     setShowRegionFilter(prev => !prev);
   }, []);
   
@@ -240,56 +324,139 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
       
       // 如果点击了筛选器外部，则关闭筛选器
       if (!isClickInsideFilter && showRegionFilter) {
-        console.log('点击了筛选器外部，关闭筛选器');
         setShowRegionFilter(false);
       }
     };
 
     // 添加全局点击事件监听器
-    document.addEventListener('mousedown', handleClickOutside, true); // 使用捕获阶段
+    document.addEventListener('mousedown', handleClickOutside, true);
 
     // 清理函数
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true);
     };
   }, [showRegionFilter]);
-
-  // 优化handleScroll，移除不必要的延迟
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    
-    if (scrollHeight - scrollTop <= clientHeight * 1.2) {
-      if (hasMore && !loading) {
-        onLoadMore();
-        setHasLoadedMore(true);
-      }
-    }
-  }, [hasMore, loading, onLoadMore]);
   
-  // 监听hasLoadedMore变化，检查新加载的数据，优化响应速度
-  useEffect(() => {
-    if (hasLoadedMore && rankingType === 'region_rank' && !loading) {
-      // 重置标记
-      setHasLoadedMore(false);
+  // 使用useRef跟踪上次滚动时间和滚动容器
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRecentlyLoaded = useRef<boolean>(false);
+  
+  // 检查是否需要加载更多数据
+  const checkAndLoadMore = useCallback(() => {
+    if (tools.length === 0 && !loading && !isLoadingRef.current && hasMore) {
       
-      // 获取当前选择的区域
-      const currentRegion = selectedRegion || selectedRegionRef.current || 'US';
-      
-      // 查找新加载的数据中是否有当前区域的数据
-      const hasCurrentRegionData = tools.some(tool => 
-        tool.region === currentRegion || tool.top_region === currentRegion
-      );
-      
-      console.log(`检测到加载了更多数据，当前区域: ${currentRegion}，是否有数据: ${hasCurrentRegionData}`);
-      
-      // 如果有数据但当前筛选结果为空，立即刷新
-      if (hasCurrentRegionData && filteredByRegionTools.length === 0) {
-        console.log(`区域 ${currentRegion} 有数据但未显示，尝试强制刷新`);
-        // 直接更新，不使用延迟
-        setSelectedRegion(currentRegion);
-      }
+      onLoadMore();
     }
-  }, [hasLoadedMore, rankingType, loading, tools, selectedRegion, selectedRegionRef, filteredByRegionTools]);
+  }, [tools.length, loading, hasMore, onLoadMore, rankingType]);
+  
+  // 首次加载时检查是否需要加载数据
+  useEffect(() => {
+    // 如果没有数据且不在加载中，尝试加载
+    if (tools.length === 0 && !loading && !isLoadingRef.current && hasMore) {
+      
+      // 设置延迟，避免多次触发
+      const timer = setTimeout(() => {
+        checkAndLoadMore();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [tools.length, loading, hasMore, checkAndLoadMore, rankingType]);
+
+  // 优化handleScroll函数，使用防抖技术
+  const handleScroll = useCallback(() => {
+    // 如果正在加载或没有更多数据或最近刚加载过数据，直接返回
+    if (loading || !hasMore || isLoadingRef.current || hasRecentlyLoaded.current) {
+      return;
+    }
+    
+    // 清除之前的定时器，实现防抖
+    if (scrollDebounceTimerRef.current) {
+      clearTimeout(scrollDebounceTimerRef.current);
+    }
+    
+    // 延迟执行滚动处理，防止频繁触发
+    scrollDebounceTimerRef.current = setTimeout(() => {
+      const container = tableContainerRef.current;
+      if (!container) return;
+      
+      const { scrollTop, clientHeight, scrollHeight } = container;
+      
+      // 调整触发条件：当滚动到距离底部500px时触发加载更多
+      if (scrollHeight - scrollTop - clientHeight < 500) {
+        
+        // 避免重复加载
+        if (!isLoadingRef.current) {
+          isLoadingRef.current = true;
+          hasRecentlyLoaded.current = true;
+          
+          // 清除之前的加载定时器
+          if (loadingTimerRef.current) {
+            clearTimeout(loadingTimerRef.current);
+          }
+          
+          // 调用loadMore加载更多数据
+          onLoadMore();
+          
+          // 设置两个定时器
+          // 1. 10秒后重置加载标志，避免卡死
+          loadingTimerRef.current = setTimeout(() => {
+            isLoadingRef.current = false;
+            loadingTimerRef.current = null;
+          }, 10000);
+          
+          // 2. 1秒后允许再次触发加载，避免滚动抖动导致连续加载
+          setTimeout(() => {
+            hasRecentlyLoaded.current = false;
+          }, 1000);
+        }
+      }
+      
+      scrollDebounceTimerRef.current = null;
+    }, 300); // 延长防抖延迟到300ms，减少误触发
+  }, [hasMore, loading, onLoadMore, rankingType]);
+
+  // 使用useEffect设置滚动事件监听
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+    
+    // 重置滚动状态标志
+    isLoadingRef.current = false;
+    hasRecentlyLoaded.current = false;
+    
+    // 添加滚动事件监听
+    container.addEventListener('scroll', handleScroll);
+    
+    // 清理函数
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      
+      // 清除所有定时器
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+      
+      if (scrollDebounceTimerRef.current) {
+        clearTimeout(scrollDebounceTimerRef.current);
+        scrollDebounceTimerRef.current = null;
+      }
+    };
+  }, [handleScroll]);
+  
+  // 监听tools变化，在数据加载后重置加载状态
+  useEffect(() => {
+    if (tools.length > 0 && isLoadingRef.current) {
+      
+      // 延迟重置加载状态，避免UI闪烁
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 300);
+    }
+  }, [tools.length]);
   
   // 渲染地区名称，根据语言显示不同内容
   const renderRegionName = useCallback((region: string) => {
@@ -498,6 +665,11 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
     // 确保有选中的地区，使用引用中的值或默认为'US'
     const currentRegion = selectedRegion || selectedRegionRef.current || 'US';
     
+    // 获取所有有数据的地区
+    const availableRegions = Object.keys(regionDataMapRef.current).length > 0 
+      ? Object.keys(regionDataMapRef.current) 
+      : allAvailableRegions;
+    
     // 使用Portal将筛选器渲染到body中
     return ReactDOM.createPortal(
       <div 
@@ -508,19 +680,23 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
         <div>
           <div className="px-3 py-2 border-b border-gray-200 font-medium text-sm text-gray-700">{t('filters.select_region')}</div>
           <div className="py-1">
-            {allAvailableRegions.map(region => {
+            {availableRegions.map(region => {
               // 检查当前region是否与选中的region匹配
               const isSelected = region === currentRegion;
+              
+              // 检查该地区是否有数据
+              const hasData = regionDataMapRef.current[region] && regionDataMapRef.current[region].length > 0;
+              const dataCount = hasData ? regionDataMapRef.current[region].length : 0;
               
               return (
                 <div 
                   key={region}
                   className={`px-3 py-2 cursor-pointer text-sm hover:bg-gray-100 
-                    ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}`}
+                    ${isSelected ? 'bg-blue-500 text-white font-medium' : ''}
+                    ${!hasData ? 'opacity-50' : ''}`}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log(`点击了地区: ${region}`);
                     handleRegionChange(region, e);
                   }}
                 >
@@ -846,11 +1022,26 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
           );
         } else if (rankingType === 'region_rank') {
           // 地区分布榜：显示地区访问量、增长和主要地区
+          
           baseCells.push(
             <td key="region_traffic" className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-              {tool.region_monthly_visits !== undefined ? 
-                formatNumber(Math.round(tool.region_monthly_visits), language) : 
-                '-'}
+              {(() => {
+                // 确保region_monthly_visits是有效数字
+                if (tool.region_monthly_visits === undefined || 
+                    tool.region_monthly_visits === null || 
+                    isNaN(Number(tool.region_monthly_visits))) {
+                  // 尝试计算region_monthly_visits
+                  if (tool.monthly_visits && tool.top_region_value) {
+                    const calculatedValue = Math.round(tool.monthly_visits * tool.top_region_value);
+                    return formatNumber(calculatedValue, language);
+                  }
+                  return '-';
+                }
+                
+                // 直接使用region_monthly_visits值
+                const value = Number(tool.region_monthly_visits);
+                return formatNumber(Math.round(value), language);
+              })()}
             </td>
           );
           
@@ -919,36 +1110,58 @@ const ToolsTable: React.FC<ToolsTableProps> = ({ tools, loading, onLoadMore, has
   // 渲染表格和筛选器
   return (
     <div 
+      ref={tableContainerRef}
       className="bg-white border border-gray-200 rounded-lg overflow-hidden relative"
-      onScroll={handleScroll}
-      style={{ maxHeight: 'calc(100vh - 150px)', overflowY: 'auto' }}
+      style={{ 
+        height: 'calc(100vh - 180px)', 
+        overflowY: 'auto',
+        minHeight: '500px',
+        overflowX: 'hidden',
+        position: 'relative',
+        willChange: 'transform', // 优化滚动性能
+        scrollBehavior: 'smooth', // 平滑滚动
+        // 添加一个小的内边距，避免浏览器边缘滚动触发问题
+        paddingBottom: '2px'
+      }}
     >
       
-      <table className="min-w-full border-collapse">
+      <table className="min-w-full border-collapse table-fixed">
         {renderTable()}
       </table>
       
       {/* 地区筛选器Portal */}
       <RegionFilterPortal />
       
-      {/* Loading indicator */}
-      {loading && (
+      {/* Loading indicator - 修改条件，避免闪烁 */}
+      {(loading || isLoadingRef.current) && (
         <div className="py-4 text-center text-gray-500">
           <div className="loader mx-auto w-6 h-6 border-2 border-t-blue-500 rounded-full animate-spin"></div>
           <p className="mt-2">{t('table.loading')}</p>
         </div>
       )}
       
-      {/* 无数据提示 */}
-      {!loading && filteredByRegionTools.length === 0 && (
+      {/* 无数据提示 - 修改条件，避免闪烁 */}
+      {!loading && !isLoadingRef.current && filteredByRegionTools.length === 0 && (
         <div className="py-10 text-center text-gray-500">
           <p className="text-lg">{t('table.no_data_found')}</p>
           <p className="mt-2">{t('table.try_another_region')}</p>
+          
+          {/* 添加重试按钮 */}
+          {hasMore && (
+            <button 
+              onClick={() => {
+                onLoadMore();
+              }}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              {t('table.retry')}
+            </button>
+          )}
         </div>
       )}
       
       {/* End of list indicator */}
-      {!loading && !hasMore && filteredByRegionTools.length > 0 && (
+      {!loading && !isLoadingRef.current && !hasMore && filteredByRegionTools.length > 0 && (
         <div className="py-4 text-center text-gray-500">
           <p>{t('table.end_of_list')}</p>
         </div>

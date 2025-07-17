@@ -66,7 +66,6 @@ const ShareButton: React.FC<ShareButtonProps> = ({ onClick }) => {
   } as React.CSSProperties;
   
   const handleClick = (e: React.MouseEvent) => {
-    console.log('分享按钮被点击');
     e.stopPropagation(); // 阻止事件冒泡
     onClick();
   };

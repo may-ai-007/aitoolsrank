@@ -627,7 +627,6 @@ export const getInlineData = (language: string, rankingType: RankingType): ApiRe
     !inlineData[language] || 
     !inlineData[language][rankingType]
   ) {
-    console.warn(`没有找到语言 ${language} 和排名类型 ${rankingType} 的内联数据，使用英文数据作为备用`);
     // 如果没有找到对应语言和排名类型的数据，则使用英文数据作为备用
     return inlineData['en']['monthly_rank'];
   }

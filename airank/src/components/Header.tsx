@@ -17,45 +17,59 @@ const Header: React.FC<HeaderProps> = ({ onOpenAbout }) => {
       setLanguage(newLang);
       if (i18n && typeof i18n.changeLanguage === 'function') {
         i18n.changeLanguage(newLang);
-        console.log('Language changed to:', newLang);
-      } else {
-        console.warn('i18n.changeLanguage is not available');
       }
     } catch (error) {
-      console.error('Failed to toggle language:', error);
+      // console.error('Failed to toggle language:', error);
     }
   };
 
   const handleNavClick = (page: string) => {
     if (page === 'about') {
-      console.log('About link clicked - opening modal');
+      // console.log('About link clicked - opening modal');
       onOpenAbout();
     }
     // 添加对'home'类型的处理，防止空白页面
     if (page === 'home') {
-      console.log('Home link clicked - navigating to home page');
+      // console.log('Home link clicked - navigating to home page');
       // 使用window.location.hash确保正确导航到首页
       window.location.hash = '/';
     }
+  };
+
+  // 副标题文本，根据当前语言显示
+  const getSubtitle = () => {
+    return language === 'zh' 
+      ? '找地表最强AI？这里排名说了算！' 
+      : 'Find Earth\'s Best AI? This Rank Rules!';
   };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo and site title */}
+          {/* Logo and site title with subtitle */}
           <div className="flex items-center">
             <a 
               href="#/" 
-              className="flex items-center text-xl font-bold text-gray-900"
+              className="flex items-start text-xl font-bold text-gray-900"
               onClick={() => handleNavClick('home')}
             >
               <img 
                 src="/fly.svg" 
                 alt="AIrank Logo" 
-                style={{ width: '36px', height: '36px', marginRight: '6px' }}
+                style={{ 
+                  width: '42px', 
+                  height: '42px', 
+                  marginRight: '8px',
+                  marginTop: '2px' 
+                }}
               />
-              {t('app.title')}
+              <div className="flex flex-col">
+                <span className="text-xl font-bold">{t('app.title')}</span>
+                <span className="text-xs text-gray-500 font-normal mt-1">
+                  {getSubtitle()}
+                </span>
+              </div>
             </a>
           </div>
 

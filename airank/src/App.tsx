@@ -16,19 +16,16 @@ const AppContent: React.FC = () => {
   
   // 提供一个打开关于弹窗的方法
   const openAboutModal = () => {
-    console.log('Opening about modal');
     setIsAboutModalOpen(true);
   };
   
   // 提供一个关闭关于弹窗的方法
   const closeAboutModal = () => {
-    console.log('Closing about modal');
     setIsAboutModalOpen(false);
   };
 
   // 监听弹窗状态变化
   useEffect(() => {
-    console.log('Modal state in App:', isAboutModalOpen);
   }, [isAboutModalOpen]);
   
   // 同步语言设置

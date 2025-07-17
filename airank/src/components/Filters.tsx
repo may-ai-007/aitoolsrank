@@ -18,13 +18,26 @@ const Filters: React.FC<FiltersProps> = ({ categories, onFilterChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   
-  useEffect(() => {
-    onFilterChange({ searchTerm, selectedCategory });
-  }, [searchTerm, selectedCategory, onFilterChange]);
+  // 移除自动触发的useEffect，避免循环更新
+  
+  // 处理搜索输入变化
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearchTerm = e.target.value;
+    setSearchTerm(newSearchTerm);
+    onFilterChange({ searchTerm: newSearchTerm, selectedCategory });
+  };
+  
+  // 处理分类选择变化
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCategory = e.target.value;
+    setSelectedCategory(newCategory);
+    onFilterChange({ searchTerm, selectedCategory: newCategory });
+  };
   
   const handleReset = () => {
     setSearchTerm('');
     setSelectedCategory('');
+    onFilterChange({ searchTerm: '', selectedCategory: '' });
   };
   
   return (
@@ -40,7 +53,7 @@ const Filters: React.FC<FiltersProps> = ({ categories, onFilterChange }) => {
           }}
           placeholder={`${t('filters.search')}🔍`}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
         />
       </div>
       
@@ -48,7 +61,7 @@ const Filters: React.FC<FiltersProps> = ({ categories, onFilterChange }) => {
       <div>
         <select
           value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
+          onChange={handleCategoryChange}
           className="pl-3 pr-8 py-2 border border-gray-300 rounded-md bg-white text-sm appearance-none text-center truncate"
           style={{ 
             height: '40px',

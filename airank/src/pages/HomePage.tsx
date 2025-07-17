@@ -11,7 +11,7 @@ import ShareModal from '../components/ShareModal';
 
 const HomePage: React.FC = () => {
   const { t } = useTranslation();
-  const { language, rankingType, setRankingType } = useAppContext();
+  const { language, rankingType, setRankingType, selectedRegion } = useAppContext();
   const initialRenderRef = useRef(true);
   const [showShareModal, setShowShareModal] = useState(false);
   
@@ -25,7 +25,7 @@ const HomePage: React.FC = () => {
   }, [rankingType, setRankingType]);
   
   // Get data from custom hook
-  const { data, loading, error, loadMore, hasMore, attemptedPaths } = useAIToolsData(rankingType, language);
+  const { data, loading, error, loadMore, hasMore, attemptedPaths, regionGroupedData } = useAIToolsData(rankingType, language, selectedRegion);
   
   // Filtering state
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,21 +45,13 @@ const HomePage: React.FC = () => {
 
   // 处理分享按钮点击
   const handleShareClick = React.useCallback(() => {
-    console.log('HomePage: 分享按钮被点击');
     setShowShareModal(true);
-    console.log('HomePage: 模态框状态已设置为:', true);
   }, []);
 
   // 关闭分享模态框
   const handleCloseShareModal = React.useCallback(() => {
-    console.log('HomePage: 关闭模态框');
     setShowShareModal(false);
   }, []);
-  
-  // 监控模态框状态变化
-  useEffect(() => {
-    console.log('HomePage: 模态框状态变化:', showShareModal);
-  }, [showShareModal]);
   
   // 预加载其他排名类型的数据
   useEffect(() => {
@@ -68,21 +60,27 @@ const HomePage: React.FC = () => {
     
     // 使用setTimeout避免阻塞主线程
     setTimeout(() => {
+      // 预加载当前语言下的所有排名类型数据
       otherRankTypes.forEach(type => {
-        // 创建一个隐藏的iframe来预加载数据
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = `data:text/html,<script>fetch('src/data/${language}/${type}.json').catch(e => console.log('预加载数据失败:', e))</script>`;
-        document.body.appendChild(iframe);
-        
-        // 5秒后移除iframe
-        setTimeout(() => {
-          if (iframe && iframe.parentNode) {
-            iframe.parentNode.removeChild(iframe);
+        // 使用fetch API直接预加载数据
+        fetch(`src/data/${language}/${type}.json`, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
           }
-        }, 5000);
+          throw new Error(`预加载失败: ${response.status}`);
+        })
+        .catch(() => {
+          // 预加载失败，静默处理
+        });
       });
-    }, 2000); // 页面加载2秒后开始预加载
+    }, 1000); // 页面加载1秒后开始预加载，提高响应速度
   }, [rankingType, language]);
   
   // 错误显示组件 - 使用useMemo优化
@@ -135,10 +133,37 @@ const HomePage: React.FC = () => {
     );
   }, [searchTerm, selectedTags, t]);
   
-  console.log('HomePage渲染，showShareModal:', showShareModal);
+  // 首次加载数据检查
+  const dataLoadedRef = useRef(false);
+  useEffect(() => {
+    // 如果数据为空且不在加载中，尝试加载数据
+    if (filteredTools.length === 0 && !loading && !dataLoadedRef.current && hasMore) {
+      dataLoadedRef.current = true; // 标记已尝试加载，避免重复触发
+      
+      // 延迟执行，确保组件已经完全挂载
+      setTimeout(() => {
+        loadMore();
+      }, 300);
+    }
+    
+    // 如果已有数据，标记为已加载
+    if (filteredTools.length > 0) {
+      dataLoadedRef.current = true;
+    }
+  }, [filteredTools.length, loading, hasMore, loadMore, rankingType]);
+  
+  // 监听rankingType变化，重置数据加载标志
+  useEffect(() => {
+    dataLoadedRef.current = false;
+  }, [rankingType]);
+  
+  // 手动触发加载数据的函数
+  const handleManualLoad = React.useCallback(() => {
+    loadMore();
+  }, [loadMore]);
   
   return (
-    <div className="container mx-auto px-4 py-4">
+    <div className="container mx-auto px-4 py-4 flex flex-col" style={{ height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
       {/* Ranking tabs with filter controls on the right */}
       <RankingTabs 
         tools={data}
@@ -146,7 +171,7 @@ const HomePage: React.FC = () => {
       />
       
       {/* Main content */}
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         {error ? errorDisplay : (
           <>
             {/* Active filters display */}
@@ -158,7 +183,20 @@ const HomePage: React.FC = () => {
               loading={loading}
               onLoadMore={loadMore}
               hasMore={hasMore}
+              regionGroupedData={regionGroupedData} // 传递按地区分组的数据
             />
+            
+            {/* 如果没有数据且不在加载中，显示手动加载按钮 */}
+            {filteredTools.length === 0 && !loading && hasMore && (
+              <div className="py-4 text-center">
+                <button 
+                  onClick={handleManualLoad}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                  {t('app.load_data')}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
